@@ -76,9 +76,9 @@ expressions are declarative; arbitrary PHP or JavaScript is not executed.
 ## Durable states
 
 The editor projects these run states: pending, running, waiting, completed,
-failed, and cancelled. Delay nodes use Durable timers. Wait/Resume nodes use a
-Durable signal with an optional timeout. Activity retry and backoff are handled
-by Durable, not by the node runner.
+failed, and cancelled. Delay nodes use Durable timers. Wait/Resume nodes accept
+commands through Durable Updates with an optional timeout. Activity retry and
+backoff are handled by Durable, not by the node runner.
 
 ## Activation
 

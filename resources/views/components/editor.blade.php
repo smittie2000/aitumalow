@@ -6,13 +6,24 @@
 
 <div
     wire:ignore
-    x-data="{ editor: null }"
+    x-data="{
+        editor: null,
+        mountEditor(target) {
+            if (this.editor || !window.AitumalowEditor) {
+                return
+            }
+
+            this.editor = window.AitumalowEditor.mountAitumalowEditor(target, {
+                workflowId: @js((int) $workflowId),
+                baseUrl: @js($apiBaseUrl),
+            })
+        },
+    }"
     x-load-css="[@js(\Filament\Support\Facades\FilamentAsset::getStyleHref('editor', package: 'aitumalow/aitumalow'))]"
     x-load-js="[@js(\Filament\Support\Facades\FilamentAsset::getScriptSrc('editor', package: 'aitumalow/aitumalow'))]"
-    x-init="$nextTick(() => editor = window.AitumalowEditor.mountAitumalowEditor($refs.target, {
-        workflowId: @js((int) $workflowId),
-        baseUrl: @js($apiBaseUrl),
-    }))"
+    data-dispatch="aitumalow-editor-loaded"
+    x-init="$nextTick(() => mountEditor($refs.target))"
+    x-on:aitumalow-editor-loaded-js.window="mountEditor($refs.target)"
     x-on:livewire:navigating.window="editor?.unmount()"
     {{ $attributes->class(['w-full overflow-hidden rounded-xl border border-gray-200 dark:border-white/10']) }}
     style="height: {{ $height }}"

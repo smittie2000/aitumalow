@@ -20,6 +20,9 @@ it('renders a host-owned editor mount point', function () {
 
     expect($html)
         ->toContain('window.AitumalowEditor.mountAitumalowEditor')
+        ->toContain('data-dispatch="aitumalow-editor-loaded"')
+        ->toContain('x-on:aitumalow-editor-loaded-js.window="mountEditor($refs.target)"')
+        ->toContain('this.editor || !window.AitumalowEditor')
         ->toContain('workflowId: 42')
         ->toContain('/custom-workflow-api')
         ->toContain('height: 60vh');

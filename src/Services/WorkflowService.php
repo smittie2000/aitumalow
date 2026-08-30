@@ -258,6 +258,13 @@ class WorkflowService
         $subjectReference = null;
         $subjectContext = [];
         $subjectFreshness = null;
+        $configuredSubject = data_get($revision->definition, 'settings.subject_type');
+
+        if (is_string($configuredSubject) && $configuredSubject !== '' && $command->subject === null) {
+            throw new LogicException(
+                "Workflow revision {$revision->id} requires subject [{$configuredSubject}].",
+            );
+        }
 
         if ($command->subject !== null) {
             $adapter = $this->subjects->get($command->subject->type);
@@ -267,7 +274,6 @@ class WorkflowService
                 throw new AuthorizationException('The workflow subject cannot be started in this execution scope.');
             }
 
-            $configuredSubject = data_get($revision->definition, 'settings.subject_type');
             if ($configuredSubject !== $adapter->key()) {
                 throw new LogicException(
                     "Workflow revision {$revision->id} expects subject [{$configuredSubject}], not [{$adapter->key()}].",
@@ -317,7 +323,7 @@ class WorkflowService
     public function resume(int|WorkflowRun $run, array $payload = []): WorkflowRun
     {
         $run = $this->resolveRun($run);
-        $run->synchronizeDurableState();
+        $run = $this->runtime->synchronizeRun($run);
         if ($run->waiting_node_id === null) {
             throw new LogicException("Aitumalow run {$run->id} is not waiting for a command.");
         }
@@ -349,7 +355,7 @@ class WorkflowService
             throw new WorkflowCommandDidNotComplete($result);
         }
 
-        $result->run->synchronizeDurableState();
+        $this->runtime->synchronizeRun($result->run);
 
         return $result;
     }
@@ -357,16 +363,35 @@ class WorkflowService
     private function dispatchCommand(int|WorkflowRun $run, RunCommand $command, bool $waitForCompletion): WorkflowCommand
     {
         $run = $this->resolveRun($run);
-        $run->synchronizeDurableState();
-        if ($run->status !== RunStatus::Waiting || $run->waiting_node_id === null) {
-            throw new LogicException("Aitumalow run {$run->id} is not waiting for a command.");
-        }
-        if ($command->expectedState !== null && $run->waiting_state !== $command->expectedState) {
-            throw new LogicException(
-                "Aitumalow run {$run->id} is waiting in state [{$run->waiting_state}], not [{$command->expectedState}].",
+        $scope = $command->scope ?? ExecutionScope::fromArray($run->execution_scope);
+        $existing = $run->commands()->where('idempotency_key', $command->idempotencyKey)->first();
+
+        if ($existing instanceof WorkflowCommand) {
+            $this->authorizeSubjectCommand($run, $command, $scope);
+
+            return $this->runtime->command(
+                $run,
+                $command,
+                $scope,
+                $existing->expected_node_id,
             );
         }
-        $expectedNodeId = $run->waiting_node_id;
+
+        $run = $this->runtime->synchronizeRun($run);
+        if ($run->status !== RunStatus::Waiting) {
+            throw new LogicException("Aitumalow run {$run->id} is not waiting for a command.");
+        }
+        $currentState = $this->runtime->currentState($run);
+        $expectedNodeId = $currentState['waiting_node_id'];
+        $waitingState = $currentState['waiting_state'];
+        if ($expectedNodeId === null) {
+            throw new LogicException("Aitumalow run {$run->id} is not waiting for a command.");
+        }
+        if ($command->expectedState !== null && $waitingState !== $command->expectedState) {
+            throw new LogicException(
+                "Aitumalow run {$run->id} is waiting in state [{$waitingState}], not [{$command->expectedState}].",
+            );
+        }
 
         $waitNode = null;
         $nodes = $run->revision->definition['nodes'] ?? null;
@@ -381,20 +406,10 @@ class WorkflowService
         if (! is_array($waitNode) || ($waitNode['key'] ?? null) !== 'core.wait_resume') {
             throw new LogicException("Node {$expectedNodeId} is not an Aitumalow command wait.");
         }
-        $acceptedCommands = [];
-        $configuredCommands = data_get($waitNode, 'config.commands');
-        if (is_array($configuredCommands)) {
-            foreach ($configuredCommands as $item) {
-                if (is_array($item) && is_string($item['key'] ?? null)) {
-                    $acceptedCommands[] = $item['key'];
-                }
-            }
-        }
-        $acceptedCommands = $acceptedCommands === [] ? ['resume'] : $acceptedCommands;
+        $acceptedCommands = $currentState['accepted_commands'];
         if (! in_array($command->name, $acceptedCommands, true)) {
-            throw new LogicException("Command [{$command->name}] is not accepted in state [{$run->waiting_state}].");
+            throw new LogicException("Command [{$command->name}] is not accepted in state [{$waitingState}].");
         }
-        $scope = $command->scope ?? ExecutionScope::fromArray($run->execution_scope);
         $effectNodeId = null;
 
         if ($waitForCompletion) {
@@ -417,18 +432,7 @@ class WorkflowService
             }
         }
 
-        if ($run->subject_type !== null && $run->subject_reference !== null) {
-            if ($command->scope === null) {
-                throw new LogicException('Commands for subject-bound workflows require the caller execution scope.');
-            }
-
-            $adapter = $this->subjects->get($run->subject_type);
-            $subject = $adapter->resolve($run->subject_reference);
-            if ($adapter->reference($subject) !== $run->subject_reference
-                || ! $adapter->canCommand($scope, $subject, $command->name, $command->payload)) {
-                throw new AuthorizationException('The workflow subject command is not authorized in this execution scope.');
-            }
-        }
+        $this->authorizeSubjectCommand($run, $command, $scope);
 
         return $this->runtime->command(
             $run,
@@ -438,6 +442,27 @@ class WorkflowService
             $waitForCompletion,
             $effectNodeId,
         );
+    }
+
+    private function authorizeSubjectCommand(
+        WorkflowRun $run,
+        RunCommand $command,
+        ExecutionScope $scope,
+    ): void {
+        if ($run->subject_type === null || $run->subject_reference === null) {
+            return;
+        }
+
+        if ($command->scope === null) {
+            throw new LogicException('Commands for subject-bound workflows require the caller execution scope.');
+        }
+
+        $adapter = $this->subjects->get($run->subject_type);
+        $subject = $adapter->resolve($run->subject_reference);
+        if ($adapter->reference($subject) !== $run->subject_reference
+            || ! $adapter->canCommand($scope, $subject, $command->name, $command->payload)) {
+            throw new AuthorizationException('The workflow subject command is not authorized in this execution scope.');
+        }
     }
 
     public function synchronizeCommand(int|WorkflowCommand $command): WorkflowCommand

@@ -4,7 +4,6 @@ namespace Aitumalow\Models;
 
 use Aitumalow\Database\Factories\WorkflowRunFactory;
 use Aitumalow\Enums\RunStatus;
-use Aitumalow\Runtime\DurableWorkflowRuntime;
 use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -142,12 +141,5 @@ class WorkflowRun extends Model
             RunStatus::Failed,
             RunStatus::Cancelled,
         ]);
-    }
-
-    public function synchronizeDurableState(): static
-    {
-        app(DurableWorkflowRuntime::class)->synchronizeRun($this);
-
-        return $this->refresh();
     }
 }

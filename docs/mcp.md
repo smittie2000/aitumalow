@@ -65,9 +65,15 @@ instead of parsing prose or JSON embedded in text.
 | `activate_workflow` | Activate a valid workflow | Idempotent |
 | `deactivate_workflow` | Deactivate a workflow | Idempotent |
 | `run_workflow` | Start a workflow with host-shaped workflow items | Mutating |
+| `show_workflow_run` | Inspect status, commands, and bounded node diagnostics without raw payloads | Read-only |
 
 Folders, tags, credentials, pinned editor data, arbitrary models, and generic
 registry operations are intentionally not part of this MCP boundary.
+
+`run_workflow` is asynchronous: it returns the Aitumalow run ID and initial
+projection status, not a completed workflow result. Use `show_workflow_run` to
+inspect progress. Workflows configured for a registered host subject must be
+started through the host's subject-aware PHP API rather than this generic tool.
 
 ## Real example: WhatsApp conversation to support ticket
 

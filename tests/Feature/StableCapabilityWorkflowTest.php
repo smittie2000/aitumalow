@@ -16,6 +16,8 @@ use Aitumalow\Facades\WorkflowAutomation;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Nodes\BaseNode;
 use Aitumalow\Registry\NodeRegistry;
+use Aitumalow\Runtime\ExecuteCapabilityActivity;
+use Workflow\V2\Models\ActivityExecution;
 
 it('builds and executes a host workflow entirely through stable capability keys', function (): void {
     WorkflowAutomation::register(WhatsAppConversationStartedTrigger::class);
@@ -77,6 +79,19 @@ it('builds and executes a host workflow entirely through stable capability keys'
                 'ticket_reference' => 'whatsapp:42',
             ]],
         ]);
+
+    $hostExecutions = ActivityExecution::query()
+        ->where('workflow_run_id', $run->durable_run_id)
+        ->where('activity_class', ExecuteCapabilityActivity::class)
+        ->get();
+
+    expect($hostExecutions)->toHaveCount(2)
+        ->and($hostExecutions->every(
+            static fn (ActivityExecution $execution): bool => data_get(
+                $execution->getAttribute('activity_options'),
+                'execution_mode',
+            ) !== 'local',
+        ))->toBeTrue();
 });
 
 it('projects a host action schema to the SDK catalog and adapts its handler', function (): void {

@@ -5,7 +5,9 @@ use Aitumalow\Enums\RunStatus;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowEdge;
 use Aitumalow\Models\WorkflowNode;
+use Aitumalow\Runtime\ExecuteCapabilityActivity;
 use Aitumalow\Services\WorkflowService;
+use Workflow\V2\Models\ActivityExecution;
 
 it('runs a workflow end-to-end via service', function () {
     $workflow = Workflow::factory()->create();
@@ -36,6 +38,19 @@ it('runs a workflow end-to-end via service', function () {
     expect($run->status)->toBe(RunStatus::Completed)
         ->and($run->nodeRuns)->toHaveCount(2)
         ->and($run->context)->not->toBeNull();
+
+    $capabilityExecutions = ActivityExecution::query()
+        ->where('workflow_run_id', $run->durable_run_id)
+        ->where('activity_class', ExecuteCapabilityActivity::class)
+        ->get();
+
+    expect($capabilityExecutions)->toHaveCount(2)
+        ->and($capabilityExecutions->every(
+            static fn (ActivityExecution $execution): bool => data_get(
+                $execution->getAttribute('activity_options'),
+                'execution_mode',
+            ) === 'local',
+        ))->toBeTrue();
 });
 
 it('runs a branching workflow with condition', function () {

@@ -12,8 +12,6 @@ class WorkflowRunResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        $this->resource->synchronizeDurableState();
-
         return [
             'id' => $this->id,
             'workflow_id' => $this->workflow_id,

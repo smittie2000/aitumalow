@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aitumalow\Testing;
 
 use Aitumalow\Models\WorkflowRun;
+use Aitumalow\Runtime\DurableWorkflowRuntime;
 use Illuminate\Support\Carbon;
 use LogicException;
 use RuntimeException;
@@ -18,8 +19,12 @@ use Workflow\V2\WorkflowStub;
  * Durable Workflow remains an implementation detail of this package. Host test
  * suites should use this harness instead of importing engine jobs or models.
  */
-final class WorkflowTestHarness
+final readonly class WorkflowTestHarness
 {
+    public function __construct(
+        private DurableWorkflowRuntime $runtime,
+    ) {}
+
     public function fake(): self
     {
         $this->ensureTestingEnvironment();
@@ -39,7 +44,10 @@ final class WorkflowTestHarness
 
         $projection = $run instanceof WorkflowRun
             ? $run
-            : WorkflowRun::query()->findOrFail($run);
+            : WorkflowRun::query()
+                ->whereKey($run)
+                ->orWhere('durable_run_id', $run)
+                ->firstOrFail();
         $durableRunId = $projection->durable_run_id;
 
         if ($durableRunId === null) {
@@ -63,7 +71,9 @@ final class WorkflowTestHarness
 
                 $availableAt = $task->getAttribute('available_at');
                 if ($availableAt instanceof Carbon && $availableAt->isFuture()) {
-                    Carbon::setTestNow($availableAt);
+                    // Step beyond the persisted timestamp so database precision
+                    // cannot leave the retry infinitesimally in the future.
+                    Carbon::setTestNow($availableAt->copy()->addSecond());
                 }
 
                 if (WorkflowStub::runReadyTasks() === 0) {
@@ -74,7 +84,9 @@ final class WorkflowTestHarness
             Carbon::setTestNow($originalNow);
         }
 
-        return $projection->fresh('nodeRuns')->synchronizeDurableState()->load('nodeRuns');
+        return $this->runtime
+            ->synchronizeRun($projection->fresh('nodeRuns'))
+            ->load('nodeRuns');
     }
 
     private function ensureTestingEnvironment(): void

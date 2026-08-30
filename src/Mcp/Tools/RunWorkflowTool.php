@@ -14,7 +14,7 @@ use Laravel\Mcp\Server\Tool;
 
 #[Name('run_workflow')]
 #[Title('Run Workflow')]
-#[Description('Execute a workflow with an optional payload. The workflow must be active. Returns the run result with status and node execution details.')]
+#[Description('Start an active workflow asynchronously with an optional payload. Returns a run handle and initial status; call show_workflow_run to inspect progress and node outcomes.')]
 class RunWorkflowTool extends Tool
 {
     public function __construct(
@@ -36,8 +36,6 @@ class RunWorkflowTool extends Tool
             $request->get('payload', []),
         );
 
-        $run->load('nodeRuns.node');
-
         return Response::structured([
             'workflow_run' => [
                 'id' => $run->id,
@@ -45,15 +43,8 @@ class RunWorkflowTool extends Tool
                 'status' => $run->status->value,
                 'started_at' => $run->started_at,
                 'finished_at' => $run->finished_at,
-                'node_runs' => $run->nodeRuns->map(fn ($nr) => [
-                    'workflow_node_id' => $nr->node_id,
-                    'workflow_node_name' => $nr->node->name,
-                    'workflow_node_key' => $nr->node->node_key,
-                    'status' => $nr->status->value,
-                    'duration_ms' => $nr->duration_ms,
-                    'error_message' => $nr->error_message,
-                ])->all(),
             ],
+            'inspection' => ['tool' => 'show_workflow_run', 'workflow_run_id' => $run->id],
         ]);
     }
 }

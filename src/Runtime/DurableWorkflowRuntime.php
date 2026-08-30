@@ -14,15 +14,8 @@ use Aitumalow\Models\WorkflowCommand;
 use Aitumalow\Models\WorkflowNodeRun;
 use Aitumalow\Models\WorkflowRevision;
 use Aitumalow\Models\WorkflowRun;
-use Illuminate\Support\Carbon;
 use LogicException;
 use Throwable;
-use Workflow\V2\Enums\TaskStatus;
-use Workflow\V2\Enums\TaskType;
-use Workflow\V2\Jobs\RunActivityTask;
-use Workflow\V2\Jobs\RunTimerTask;
-use Workflow\V2\Jobs\RunWorkflowTask;
-use Workflow\V2\Models\WorkflowTask;
 use Workflow\V2\StartOptions;
 use Workflow\V2\WorkflowStub;
 
@@ -153,14 +146,6 @@ final readonly class DurableWorkflowRuntime
         return $projection->fresh();
     }
 
-    /** @param array<int, array<string, mixed>> $payload */
-    public function signal(WorkflowRun $run, array $payload): WorkflowRun
-    {
-        $this->stub($run)->signal('resume', $payload);
-
-        return $run->fresh();
-    }
-
     public function command(
         WorkflowRun $run,
         RunCommand $request,
@@ -169,6 +154,18 @@ final readonly class DurableWorkflowRuntime
         bool $waitForCompletion = false,
         ?int $effectNodeId = null,
     ): WorkflowCommand {
+        $command = $run->commands()->where('idempotency_key', $request->idempotencyKey)->first();
+
+        if ($command instanceof WorkflowCommand) {
+            if ($command->name !== $request->name
+                || $command->expected_node_id !== $expectedNodeId
+                || $command->payload !== $request->payload) {
+                throw new LogicException('The workflow command idempotency key was reused with a different command.');
+            }
+
+            return $this->synchronizeCommand($command);
+        }
+
         if ($run->isFinished()) {
             throw new LogicException("Aitumalow run {$run->id} is already finished.");
         }
@@ -261,50 +258,62 @@ final readonly class DurableWorkflowRuntime
     {
         $timeout = max(1, (int) config('aitumalow.command_effect_timeout_seconds', 15));
         $deadline = microtime(true) + $timeout;
-        $originalNow = Carbon::getTestNow();
 
-        try {
-            do {
-                $effect = $run->nodeRuns()
-                    ->where('node_id', $nodeId)
-                    ->where('id', '>', $afterId)
-                    ->whereIn('status', [NodeRunStatus::Completed->value, NodeRunStatus::Failed->value])
-                    ->oldest('id')
-                    ->first();
+        do {
+            $effect = $run->nodeRuns()
+                ->where('node_id', $nodeId)
+                ->where('id', '>', $afterId)
+                ->whereIn('status', [NodeRunStatus::Completed->value, NodeRunStatus::Failed->value])
+                ->oldest('id')
+                ->first();
 
-                if ($effect instanceof WorkflowNodeRun) {
-                    return $effect;
+            if ($effect instanceof WorkflowNodeRun) {
+                return $effect;
+            }
+
+            if (WorkflowStub::faked()) {
+                if (WorkflowStub::runReadyTasks() === 0) {
+                    return null;
                 }
+            } else {
+                usleep(50_000);
+            }
+        } while (microtime(true) < $deadline);
 
-                if (WorkflowStub::faked()) {
-                    $task = WorkflowTask::query()
-                        ->where('workflow_run_id', $run->durable_run_id)
-                        ->where('status', TaskStatus::Ready->value)
-                        ->orderBy('available_at')
-                        ->orderBy('created_at')
-                        ->first();
-                    $availableAt = $task?->getAttribute('available_at');
-                    if ($availableAt instanceof Carbon && $availableAt->isFuture()) {
-                        Carbon::setTestNow($availableAt);
-                    }
-                    $taskType = $task?->getAttribute('task_type');
-                    if ($task instanceof WorkflowTask && $taskType instanceof TaskType) {
-                        $job = match ($taskType) {
-                            TaskType::Workflow => new RunWorkflowTask($task->id),
-                            TaskType::Activity => new RunActivityTask($task->id),
-                            TaskType::Timer => new RunTimerTask($task->id),
-                        };
-                        app()->call([$job, 'handle']);
-                    }
-                } else {
-                    usleep(50_000);
-                }
-            } while (microtime(true) < $deadline);
+        return null;
+    }
 
-            return null;
-        } finally {
-            Carbon::setTestNow($originalNow);
+    /**
+     * Read the replayed workflow state without relying on the local projection.
+     *
+     * @return array{
+     *     waiting_node_id: int|null,
+     *     waiting_state: string|null,
+     *     accepted_commands: list<string>
+     * }
+     */
+    public function currentState(WorkflowRun $run): array
+    {
+        $state = $this->stub($run)->query('aitumalow.current-state');
+
+        if (! is_array($state)) {
+            throw new LogicException("Aitumalow run {$run->id} returned an invalid Durable query state.");
         }
+
+        $acceptedCommands = array_values(array_filter(
+            is_array($state['accepted_commands'] ?? null) ? $state['accepted_commands'] : [],
+            is_string(...),
+        ));
+
+        return [
+            'waiting_node_id' => is_int($state['waiting_node_id'] ?? null)
+                ? $state['waiting_node_id']
+                : null,
+            'waiting_state' => is_string($state['waiting_state'] ?? null)
+                ? $state['waiting_state']
+                : null,
+            'accepted_commands' => $acceptedCommands,
+        ];
     }
 
     public function synchronizeCommand(WorkflowCommand $command): WorkflowCommand

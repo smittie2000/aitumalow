@@ -18,6 +18,7 @@ use Aitumalow\Facades\WorkflowAutomation;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Nodes\BaseNode;
 use Illuminate\Auth\Access\AuthorizationException;
+use LogicException;
 
 it('wraps subject authorization context and idempotent Durable start behind the Aitumalow API', function (): void {
     WorkflowAutomation::register(HostApiManualTrigger::class);
@@ -85,6 +86,22 @@ it('keeps subject authorization in the host adapter while Aitumalow owns orchest
         scope: new ExecutionScope('tenant:acme', 'user:denied'),
     ));
 })->throws(AuthorizationException::class);
+
+it('requires the host subject contract for subject-bound workflow starts', function (): void {
+    WorkflowAutomation::register(HostApiManualTrigger::class);
+    WorkflowAutomation::register(RecordSubjectAction::class);
+    WorkflowAutomation::subject(new CalendarEventSubjectAdapter);
+
+    $workflow = Workflow::factory()->create([
+        'settings' => ['subject_type' => 'app.calendar_event'],
+    ]);
+    $trigger = WorkflowFacade::addNode($workflow, 'app.workflow.manual');
+    $action = WorkflowFacade::addNode($workflow, 'app.calendar_event.record');
+    WorkflowFacade::connect($trigger, $action);
+    WorkflowFacade::activate($workflow);
+
+    WorkflowFacade::run($workflow->fresh(), [['event_reference' => 'event:42']]);
+})->throws(LogicException::class, 'requires subject [app.calendar_event]');
 
 #[WorkflowNode(
     key: 'app.workflow.manual',

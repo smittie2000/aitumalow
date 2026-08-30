@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Aitumalow\Runtime;
 
 use RuntimeException;
+use Workflow\QueryMethod;
 use Workflow\UpdateMethod;
 use Workflow\V2\Attributes\Type;
 use Workflow\V2\Support\ActivityOptions;
+use Workflow\V2\Support\LocalActivityOptions;
 use Workflow\V2\Workflow;
 
 #[Type('aitumalow.graph.v1')]
 final class DynamicGraphWorkflow extends Workflow
 {
     private ?int $waitingNodeId = null;
+
+    private ?string $waitingState = null;
 
     /** @var list<string> */
     private array $waitingCommands = [];
@@ -39,6 +43,8 @@ final class DynamicGraphWorkflow extends Workflow
         if (($snapshot['version'] ?? null) !== 1) {
             throw new RuntimeException('Unsupported Aitumalow workflow snapshot version.');
         }
+
+        $useLocalCoreActivities = (bool) Workflow::patched('aitumalow.core-local-activities.v1');
 
         $projectionRunId = Workflow::activity(
             EnsureRunProjectionActivity::class,
@@ -73,6 +79,7 @@ final class DynamicGraphWorkflow extends Workflow
             $projectionRunId,
             $snapshot,
             $runMetadata,
+            $useLocalCoreActivities,
         );
         $context['node:'.$triggerNodeId] = $triggerOutput;
 
@@ -139,6 +146,9 @@ final class DynamicGraphWorkflow extends Workflow
                         : null,
                 );
                 $this->waitingNodeId = $nodeId;
+                $this->waitingState = is_string($node['config']['state_key'] ?? null)
+                    ? $node['config']['state_key']
+                    : null;
                 $this->waitingCommands = $this->commandKeys($node['config'] ?? []);
                 if (($this->pendingCommand['node_id'] ?? null) !== $nodeId) {
                     $this->pendingCommand = null;
@@ -150,6 +160,7 @@ final class DynamicGraphWorkflow extends Workflow
                 );
                 $command = $this->pendingCommand;
                 $this->waitingNodeId = null;
+                $this->waitingState = null;
                 $this->waitingCommands = [];
                 $this->pendingCommand = null;
                 Workflow::activity(
@@ -177,6 +188,7 @@ final class DynamicGraphWorkflow extends Workflow
                 $projectionRunId,
                 $snapshot,
                 $runMetadata,
+                $useLocalCoreActivities,
             );
             $context['node:'.$nodeId] = $output;
 
@@ -226,6 +238,25 @@ final class DynamicGraphWorkflow extends Workflow
     }
 
     /**
+     * Replay-safe source of truth for the workflow's current command state.
+     *
+     * @return array{
+     *     waiting_node_id: int|null,
+     *     waiting_state: string|null,
+     *     accepted_commands: list<string>
+     * }
+     */
+    #[QueryMethod('aitumalow.current-state')]
+    public function currentState(): array
+    {
+        return [
+            'waiting_node_id' => $this->waitingNodeId,
+            'waiting_state' => $this->waitingState,
+            'accepted_commands' => $this->waitingCommands,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $node
      * @param  array<int, array<string, mixed>>  $items
      * @param  array<int, array<string, mixed>>  $payload
@@ -244,19 +275,15 @@ final class DynamicGraphWorkflow extends Workflow
         int $projectionRunId,
         array $snapshot,
         array $runMetadata,
+        bool $useLocalCoreActivities,
     ): array {
         $config = is_array($node['config'] ?? null) ? $node['config'] : [];
         $settings = is_array($snapshot['settings'] ?? null) ? $snapshot['settings'] : [];
         $retries = max(0, (int) ($config['retry_count'] ?? $settings['retry_count'] ?? 0));
         $delayMs = max(0, (int) ($config['retry_delay_ms'] ?? 1000));
 
-        return Workflow::activity(
+        $arguments = [
             ExecuteCapabilityActivity::class,
-            new ActivityOptions(
-                queue: is_string($settings['queue'] ?? null) ? $settings['queue'] : null,
-                maxAttempts: $retries + 1,
-                backoff: max(1, (int) ceil($delayMs / 1000)),
-            ),
             $node,
             $items,
             $payload,
@@ -267,6 +294,27 @@ final class DynamicGraphWorkflow extends Workflow
             (bool) ($snapshot['test_mode'] ?? false),
             is_array($snapshot['node_name_map'] ?? null) ? $snapshot['node_name_map'] : [],
             $runMetadata,
+        ];
+
+        if ($useLocalCoreActivities && str_starts_with((string) ($node['key'] ?? ''), 'core.')) {
+            return Workflow::localActivity(
+                array_shift($arguments),
+                new LocalActivityOptions(
+                    maxAttempts: $retries + 1,
+                    backoff: max(1, (int) ceil($delayMs / 1000)),
+                ),
+                ...$arguments,
+            );
+        }
+
+        return Workflow::activity(
+            array_shift($arguments),
+            new ActivityOptions(
+                queue: is_string($settings['queue'] ?? null) ? $settings['queue'] : null,
+                maxAttempts: $retries + 1,
+                backoff: max(1, (int) ceil($delayMs / 1000)),
+            ),
+            ...$arguments,
         );
     }
 

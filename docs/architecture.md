@@ -18,7 +18,7 @@ Aitumalow
   editor, graph, validation, activation, run projections
                     |
 Durable Workflow v2
-  queue tasks, retries, timers, signals, schedules, recovery
+  queue tasks, local activities, retries, timers, Updates, schedules, recovery
 ```
 
 The stored graph selects stable keys such as `app.ticket.create`. The Laravel
@@ -36,12 +36,17 @@ Durable workflow deterministically walks that snapshot and invokes the generic
 activity for each node. The activity resolves the node's stable key through the
 host-populated registry and invokes the Laravel capability.
 
+Package-owned `core.*` nodes use versioned Durable local activities to avoid a
+separate queue trip for short package transformations. Host capabilities remain
+ordinary queued activities so host routing, isolation, and business effects do
+not move into the workflow worker.
+
 Durable Workflow owns:
 
 - workflow and activity task dispatch;
 - activity retry and backoff;
 - durable timers for delay nodes;
-- signals and timeout handling for wait nodes;
+- Updates and timeout handling for wait nodes;
 - recurring schedule state;
 - workflow history and crash recovery; and
 - execution concurrency inside its runtime.

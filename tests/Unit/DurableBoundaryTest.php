@@ -26,3 +26,22 @@ it('keeps Durable Workflow imports inside Aitumalow runtime adapters', function 
 
     expect($violations)->toBeEmpty();
 });
+
+it('uses only Durable public contracts in production runtime adapters', function (): void {
+    $runtimeRoot = dirname(__DIR__, 2).'/src/Runtime';
+    $violations = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($runtimeRoot));
+
+    foreach ($iterator as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $contents = file_get_contents($file->getPathname());
+        if (is_string($contents) && preg_match('/^use Workflow\\\\V2\\\\(?:Jobs|Models)\\\\/m', $contents)) {
+            $violations[] = $file->getFilename();
+        }
+    }
+
+    expect($violations)->toBeEmpty();
+});

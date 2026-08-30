@@ -9,10 +9,14 @@ use Aitumalow\Facades\WorkflowAutomation;
 use Aitumalow\Mcp\Tools\AddWorkflowNodeTool;
 use Aitumalow\Mcp\Tools\ConnectWorkflowNodesTool;
 use Aitumalow\Mcp\Tools\ListWorkflowNodesTool;
+use Aitumalow\Mcp\Tools\RunWorkflowTool;
 use Aitumalow\Mcp\Tools\ShowWorkflowNodeTool;
+use Aitumalow\Mcp\Tools\ShowWorkflowRunTool;
 use Aitumalow\Mcp\WorkflowMcpServer;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowNode as WorkflowNodeModel;
+use Aitumalow\Models\WorkflowRun;
+use Aitumalow\Services\WorkflowService;
 use Illuminate\Testing\Fluent\AssertableJson;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
 
@@ -41,7 +45,44 @@ it('exposes only the focused catalog and workflow composition tools', function (
         'activate_workflow',
         'deactivate_workflow',
         'run_workflow',
+        'show_workflow_run',
     ])->and($context->prompts())->toBeEmpty();
+});
+
+it('starts asynchronously and inspects a run without returning raw payloads', function (): void {
+    $workflow = Workflow::factory()->create();
+    $trigger = WorkflowNodeModel::factory()->trigger()->create(['workflow_id' => $workflow->id]);
+    $action = WorkflowNodeModel::factory()->create([
+        'workflow_id' => $workflow->id,
+        'node_key' => 'app.ticket.create',
+        'config' => ['priority' => 'normal'],
+    ]);
+    app(WorkflowService::class)->connect($trigger, $action);
+    app(WorkflowService::class)->activate($workflow);
+
+    WorkflowMcpServer::tool(RunWorkflowTool::class, [
+        'workflow_id' => $workflow->id,
+        'payload' => [['private_note' => 'do not return']],
+    ])->assertOk()
+        ->assertStructuredContent(fn (AssertableJson $json) => $json
+            ->where('workflow_run.workflow_id', $workflow->id)
+            ->where('inspection.tool', 'show_workflow_run')
+            ->missing('workflow_run.node_runs')
+            ->etc());
+
+    $runId = WorkflowRun::query()->sole()->id;
+    $this->drainDurableRun((string) $runId);
+
+    WorkflowMcpServer::tool(ShowWorkflowRunTool::class, [
+        'workflow_run_id' => $runId,
+    ])->assertOk()
+        ->assertStructuredContent(fn (AssertableJson $json) => $json
+            ->where('workflow_run.status', 'completed')
+            ->has('workflow_run.node_runs', 2)
+            ->missing('workflow_run.initial_payload')
+            ->missing('workflow_run.context')
+            ->etc())
+        ->assertDontSee('do not return');
 });
 
 it('projects registered workflow nodes as structured MCP content', function (): void {
