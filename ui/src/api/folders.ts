@@ -14,7 +14,7 @@ export const createFoldersApi = (client: HttpTransport) => ({
     client.put<ApiResponse<WorkflowFolder>>(`/folders/${id}`, data),
 
   destroy: (id: number) =>
-    client.delete<void>(`/folders/${id}`),
+    client.delete<{ message: string }>(`/folders/${id}`),
 })
 
 export const foldersApi = createFoldersApi(api)

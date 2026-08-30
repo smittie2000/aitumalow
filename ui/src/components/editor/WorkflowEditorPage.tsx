@@ -29,6 +29,7 @@ import {
   useWorkflowEditorStoreApi,
 } from '../../stores/EditorRuntimeProvider'
 import { useEditorSdk } from '../../sdk/EditorSdkContext'
+import { apiErrorMessage } from '../../api/client'
 import type { WorkflowTag, WorkflowFolder } from '../../api/types'
 import { Canvas } from './Canvas'
 import { ExportDropdown } from './ExportDropdown'
@@ -39,6 +40,8 @@ import { ExecuteModal } from '../execution/ExecuteModal'
 import { TestNodeInputModal } from '../execution/TestNodeInputModal'
 import { LoadingSpinner } from '../shared/LoadingSpinner'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { FolderTree } from '../folders/FolderTree'
+import { folderPathLabel } from '../../lib/folders'
 
 type SidebarTab = 'palette' | 'runs'
 
@@ -81,6 +84,8 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('palette')
   const [showExecute, setShowExecute] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
+  const [isTogglingActive, setIsTogglingActive] = useState(false)
+  const [activationError, setActivationError] = useState<string | null>(null)
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false)
   const [mobileRightOpen, setMobileRightOpen] = useState(false)
@@ -130,13 +135,22 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   }, [selectedNodeId])
 
   const handleToggleActive = async () => {
-    if (!workflow) return
-    if (workflow.is_active) {
-      await sdk.workflows.deactivate(workflow.id)
-    } else {
-      await sdk.workflows.activate(workflow.id)
+    if (!workflow || isTogglingActive) return
+
+    setActivationError(null)
+    setIsTogglingActive(true)
+    try {
+      if (workflow.is_active) {
+        await sdk.workflows.deactivate(workflow.id)
+      } else {
+        await sdk.workflows.activate(workflow.id)
+      }
+      await loadWorkflow(workflow.id, registryStore.getState().getByKey)
+    } catch (error) {
+      setActivationError(apiErrorMessage(error, 'The workflow status could not be changed.'))
+    } finally {
+      setIsTogglingActive(false)
     }
-    loadWorkflow(workflow.id, registryStore.getState().getByKey)
   }
 
   const handleToggleTag = async (tagId: number) => {
@@ -225,44 +239,42 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           </span>
 
           {/* Folder indicator */}
-          <div className="relative hidden md:block" ref={folderPickerRef}>
+          <div className="relative" ref={folderPickerRef}>
             <button
               type="button"
               onClick={() => { setShowFolderPicker(!showFolderPicker); setShowTagPicker(false) }}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-              title="Set folder"
+              className="flex items-center gap-1 rounded-md p-1 text-[10px] text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 sm:px-2"
+              title="Set workflow folder"
+              aria-label={'Workflow folder: ' + folderPathLabel(allFolders, workflow.folder_id)}
+              aria-expanded={showFolderPicker}
             >
               <Folder size={12} />
-              <span className="max-w-20 truncate">
-                {workflow.folder ? workflow.folder.name : 'No folder'}
+              <span className="hidden max-w-28 truncate sm:inline">
+                {folderPathLabel(allFolders, workflow.folder_id)}
               </span>
             </button>
             {showFolderPicker && (
-              <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800">
+              <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Workflow location
+                </div>
                 <button
                   type="button"
                   onClick={() => handleSetFolder(null)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     !workflow.folder_id ? 'font-medium text-blue-600' : 'text-gray-700 dark:text-gray-300'
                   }`}
                 >
                   {!workflow.folder_id && <Check size={12} />}
-                  <span className={!workflow.folder_id ? '' : 'ml-5'}>No folder</span>
+                  <span className={!workflow.folder_id ? '' : 'ml-5'}>Unfiled</span>
                 </button>
-                {allFolders.map((f) => (
-                  <button
-                    type="button"
-                    key={f.id}
-                    onClick={() => handleSetFolder(f.id)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                      workflow.folder_id === f.id ? 'font-medium text-blue-600' : 'text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {workflow.folder_id === f.id && <Check size={12} />}
-                    <Folder size={12} className={workflow.folder_id === f.id ? '' : 'ml-5'} />
-                    {f.name}
-                  </button>
-                ))}
+                <div className="mt-1 max-h-64 overflow-y-auto border-t border-gray-100 pt-1 dark:border-gray-700">
+                  <FolderTree
+                    folders={allFolders}
+                    selectedFolderId={workflow.folder_id}
+                    onSelect={handleSetFolder}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -403,15 +415,19 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             <button
               type="button"
               onClick={handleToggleActive}
+              disabled={isTogglingActive}
+              aria-pressed={workflow.is_active}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                 workflow.is_active
                   ? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30'
                   : 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30'
-              }`}
+              } disabled:cursor-wait disabled:opacity-50`}
               title={workflow.is_active ? 'Deactivate' : 'Activate'}
             >
               {workflow.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-              {workflow.is_active ? 'Active' : 'Inactive'}
+              {isTogglingActive
+                ? (workflow.is_active ? 'Deactivating...' : 'Activating...')
+                : (workflow.is_active ? 'Active' : 'Inactive')}
             </button>
           </div>
           <button
@@ -427,6 +443,23 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           </button>
         </div>
       </div>
+
+      {activationError && (
+        <div
+          className="flex shrink-0 items-start justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-300"
+          role="alert"
+        >
+          <span>{activationError}</span>
+          <button
+            type="button"
+            onClick={() => setActivationError(null)}
+            className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/50"
+            aria-label="Dismiss workflow status error"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div className="relative flex flex-1 overflow-hidden">

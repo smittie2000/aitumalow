@@ -9,6 +9,7 @@
     "build:embed": "tsc -b && vite build --config vite.embed.config.ts && npm run check:embed",
     "check:embed": "node scripts/check-embed.mjs",
     "lint": "eslint .",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

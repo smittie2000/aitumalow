@@ -64,12 +64,16 @@ it('lists folders', function () {
 
 it('lists folders as tree', function () {
     $parent = WorkflowFolder::factory()->create(['name' => 'Parent']);
-    WorkflowFolder::factory()->create(['name' => 'Child', 'parent_id' => $parent->id]);
+    $child = WorkflowFolder::factory()->create(['name' => 'Child', 'parent_id' => $parent->id]);
+    WorkflowFolder::factory()->create(['name' => 'Grandchild', 'parent_id' => $child->id]);
     WorkflowFolder::factory()->create(['name' => 'Root 2']);
 
     $this->getJson('/workflow-engine/folders?tree=1')
         ->assertOk()
-        ->assertJsonCount(2, 'data'); // only root-level
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.name', 'Parent')
+        ->assertJsonPath('data.0.children.0.name', 'Child')
+        ->assertJsonPath('data.0.children.0.children.0.name', 'Grandchild');
 });
 
 it('creates a folder', function () {
@@ -99,6 +103,35 @@ it('updates a folder', function () {
         ->assertJsonPath('data.name', 'New');
 });
 
+it('moves a folder under another folder', function () {
+    $parent = WorkflowFolder::factory()->create();
+    $folder = WorkflowFolder::factory()->create();
+
+    $this->putJson("/workflow-engine/folders/{$folder->id}", ['parent_id' => $parent->id])
+        ->assertOk()
+        ->assertJsonPath('data.parent_id', $parent->id);
+});
+
+it('rejects moving a folder inside itself', function () {
+    $folder = WorkflowFolder::factory()->create();
+
+    $this->putJson("/workflow-engine/folders/{$folder->id}", ['parent_id' => $folder->id])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['parent_id']);
+});
+
+it('rejects moving a folder inside one of its descendants', function () {
+    $parent = WorkflowFolder::factory()->create();
+    $child = WorkflowFolder::factory()->create(['parent_id' => $parent->id]);
+    $grandchild = WorkflowFolder::factory()->create(['parent_id' => $child->id]);
+
+    $this->putJson("/workflow-engine/folders/{$parent->id}", ['parent_id' => $grandchild->id])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['parent_id']);
+
+    expect($parent->refresh()->parent_id)->toBeNull();
+});
+
 it('deletes a folder', function () {
     $folder = WorkflowFolder::factory()->create();
 
@@ -106,6 +139,30 @@ it('deletes a folder', function () {
         ->assertOk();
 
     $this->assertDatabaseMissing(config('aitumalow.tables.folders'), ['id' => $folder->id]);
+});
+
+it('blocks deleting a folder that contains workflows', function () {
+    $folder = WorkflowFolder::factory()->create();
+    $workflow = Workflow::factory()->create(['folder_id' => $folder->id]);
+
+    $this->deleteJson("/workflow-engine/folders/{$folder->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['folder']);
+
+    expect($folder->refresh()->exists)->toBeTrue()
+        ->and($workflow->refresh()->folder_id)->toBe($folder->id);
+});
+
+it('blocks deleting a folder that contains subfolders', function () {
+    $folder = WorkflowFolder::factory()->create();
+    $child = WorkflowFolder::factory()->create(['parent_id' => $folder->id]);
+
+    $this->deleteJson("/workflow-engine/folders/{$folder->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['folder']);
+
+    expect($folder->refresh()->exists)->toBeTrue()
+        ->and($child->refresh()->parent_id)->toBe($folder->id);
 });
 
 // ── Workflow + Tags ─────────────────────────────────────────────

@@ -28,8 +28,9 @@ export interface WorkflowListStore {
   createTag: (name: string, color?: string) => Promise<WorkflowTag>
   deleteTag: (id: number) => Promise<void>
   createFolder: (name: string, parentId?: number | null) => Promise<WorkflowFolder>
+  updateFolder: (id: number, data: { name?: string; parent_id?: number | null }) => Promise<WorkflowFolder>
   deleteFolder: (id: number) => Promise<void>
-  createWorkflow: (name: string, description?: string) => Promise<Workflow>
+  createWorkflow: (name: string, description?: string, folderId?: number | null) => Promise<Workflow>
   deleteWorkflow: (id: number) => Promise<void>
   duplicateWorkflow: (id: number) => Promise<void>
   toggleActive: (id: number, currentlyActive: boolean) => Promise<void>
@@ -99,7 +100,7 @@ export const createWorkflowListStore = (sdk: AitumalowEditorSdk) => createStore<
   },
 
   fetchFolders: async () => {
-    const res = await sdk.folders.list(true)
+    const res = await sdk.folders.list()
     set({ folders: res.data })
   },
 
@@ -122,6 +123,12 @@ export const createWorkflowListStore = (sdk: AitumalowEditorSdk) => createStore<
     return res.data
   },
 
+  updateFolder: async (id, data) => {
+    const res = await sdk.folders.update(id, data)
+    await get().fetchFolders()
+    return res.data
+  },
+
   deleteFolder: async (id) => {
     await sdk.folders.destroy(id)
     if (get().selectedFolderId === id) set({ selectedFolderId: null })
@@ -129,8 +136,13 @@ export const createWorkflowListStore = (sdk: AitumalowEditorSdk) => createStore<
     await get().fetchWorkflows(1)
   },
 
-  createWorkflow: async (name, description) => {
-    const res = await sdk.workflows.create({ name, description, created_via: 'editor' })
+  createWorkflow: async (name, description, folderId) => {
+    const res = await sdk.workflows.create({
+      name,
+      description,
+      created_via: 'editor',
+      folder_id: folderId,
+    })
     await get().fetchWorkflows(get().currentPage)
     return res.data
   },

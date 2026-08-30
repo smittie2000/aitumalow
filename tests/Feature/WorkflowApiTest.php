@@ -91,6 +91,27 @@ it('deactivates a workflow', function () {
         ->assertJsonPath('data.is_active', false);
 });
 
+it('reactivates a deactivated workflow', function () {
+    $workflow = Workflow::factory()->create(['is_active' => false]);
+    WorkflowNode::factory()->trigger()->create(['workflow_id' => $workflow->id]);
+
+    $this->postJson("/workflow-engine/workflows/{$workflow->id}/activate")
+        ->assertOk();
+
+    $revisionId = $workflow->fresh()->active_revision_id;
+
+    $this->postJson("/workflow-engine/workflows/{$workflow->id}/deactivate")
+        ->assertOk()
+        ->assertJsonPath('data.is_active', false);
+
+    $this->postJson("/workflow-engine/workflows/{$workflow->id}/activate")
+        ->assertOk()
+        ->assertJsonPath('data.is_active', true)
+        ->assertJsonPath('data.active_revision_id', $revisionId);
+
+    expect($workflow->revisions()->count())->toBe(1);
+});
+
 it('refuses to activate an invalid workflow', function () {
     $workflow = Workflow::factory()->create(['is_active' => false]);
 

@@ -146,6 +146,13 @@ The landing page shows all your workflows in a card grid with:
 - **Duplicate** — Clone an existing workflow
 - **Delete** — Remove with confirmation dialog
 - **Pagination** — Navigate through large workflow collections
+- **Folders** — Browse a nested tree and create, rename, move, or safely delete
+  empty folders. New workflows inherit the folder currently being viewed.
+
+Folder administration stays on the workflow-list surface. Inside the embedded
+editor, the existing header contains only a compact path-aware location picker;
+it does not add another sidebar or displace the node palette, canvas, run
+history, or node configuration.
 
 ### Canvas Editor
 

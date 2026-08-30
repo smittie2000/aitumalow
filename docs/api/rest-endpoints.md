@@ -137,6 +137,32 @@ POST /workflow-engine/workflows/{id}/validate
 }
 ```
 
+## Workflow Folders
+
+Folders organize editor workflows without changing workflow execution.
+
+    GET /workflow-engine/folders
+    GET /workflow-engine/folders?tree=1
+    POST /workflow-engine/folders
+    PUT /workflow-engine/folders/{id}
+    DELETE /workflow-engine/folders/{id}
+
+The default list is flat and ordered by name. The tree query returns the
+complete nested hierarchy, including every descendant level.
+
+Create or rename a folder and optionally place it under a parent:
+
+    {
+      "name": "Onboarding",
+      "parent_id": 12
+    }
+
+Moving a folder inside itself or one of its descendants is rejected. Deletion
+is also rejected while the folder contains workflows or subfolders; callers
+must explicitly move that content first. These safeguards prevent an editor
+action from recursively deleting folder structure or silently unfiling
+workflows.
+
 ## Nodes
 
 ### Create Node

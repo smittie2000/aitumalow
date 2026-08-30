@@ -14,11 +14,8 @@ import {
   Search,
   ArrowUpDown,
   Folder,
-  FolderOpen,
   Tag,
   X,
-  ChevronDown,
-  ChevronRight as ChevronRightIcon,
 } from 'lucide-react'
 import {
   useRegistryStore,
@@ -27,8 +24,11 @@ import {
 } from '../../stores/EditorRuntimeProvider'
 import { LoadingSpinner } from '../shared/LoadingSpinner'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { FolderManagementPanel } from '../folders/FolderManagementPanel'
 import { ImportWorkflowModal } from './ImportWorkflowModal'
-import type { Workflow, WorkflowFolder } from '../../api/types'
+import { apiErrorMessage } from '../../api/client'
+import { folderPathLabel } from '../../lib/folders'
+import type { Workflow } from '../../api/types'
 
 const sortOptions = [
   { label: 'Newest first', sort: 'created_at' as const, direction: 'desc' as const },
@@ -63,6 +63,7 @@ export function WorkflowListPage() {
     createTag,
     deleteTag,
     createFolder,
+    updateFolder,
     deleteFolder,
     createWorkflow,
     deleteWorkflow,
@@ -83,10 +84,9 @@ export function WorkflowListPage() {
   const [showNewTag, setShowNewTag] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#3B82F6')
-  const [showNewFolder, setShowNewFolder] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
-  const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set())
-  const [sidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [togglingWorkflowId, setTogglingWorkflowId] = useState<number | null>(null)
+  const [activationError, setActivationError] = useState<string | null>(null)
 
   // search/sort/direction are intentionally excluded — setSearch/setSort call fetchWorkflows directly
   useEffect(() => {
@@ -107,7 +107,8 @@ export function WorkflowListPage() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return
-    const wf = await createWorkflow(newName.trim(), newDesc.trim() || undefined)
+    const folderId = typeof selectedFolderId === 'number' ? selectedFolderId : null
+    const wf = await createWorkflow(newName.trim(), newDesc.trim() || undefined, folderId)
     setShowCreate(false)
     setNewName('')
     setNewDesc('')
@@ -126,13 +127,21 @@ export function WorkflowListPage() {
     setDuplicateId(null)
   }
 
-  const toggleFolderExpand = (id: number) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const handleToggleActive = async (workflow: Workflow) => {
+    if (togglingWorkflowId !== null) return
+
+    setActivationError(null)
+    setTogglingWorkflowId(workflow.id)
+    try {
+      await toggleActive(workflow.id, workflow.is_active)
+    } catch (error) {
+      const action = workflow.is_active ? 'deactivate' : 'activate'
+      setActivationError(
+        `Could not ${action} "${workflow.name}". ${apiErrorMessage(error, 'The workflow status could not be changed.')}`,
+      )
+    } finally {
+      setTogglingWorkflowId(null)
+    }
   }
 
   const handleCreateTag = async () => {
@@ -142,127 +151,27 @@ export function WorkflowListPage() {
     setShowNewTag(false)
   }
 
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return
-    await createFolder(newFolderName.trim())
-    setNewFolderName('')
-    setShowNewFolder(false)
-  }
-
-  const renderFolderTree = (items: WorkflowFolder[], depth = 0) =>
-    items.map((folder) => (
-      <div key={folder.id}>
-        <div
-          className={`flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-sm transition ${
-            selectedFolderId === folder.id
-              ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-          }`}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? null : folder.id)}
-        >
-          {folder.children && folder.children.length > 0 ? (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); toggleFolderExpand(folder.id) }}
-              className="shrink-0 p-0.5"
-            >
-              {expandedFolders.has(folder.id) ? <ChevronDown size={12} /> : <ChevronRightIcon size={12} />}
-            </button>
-          ) : (
-            <span className="w-4" />
-          )}
-          {selectedFolderId === folder.id ? <FolderOpen size={14} /> : <Folder size={14} />}
-          <span className="truncate">{folder.name}</span>
-          {folder.workflows_count != null && folder.workflows_count > 0 && (
-            <span className="ml-auto shrink-0 rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium leading-none text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-              {folder.workflows_count}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id) }}
-            className="hidden shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500 group-hover/folder:block"
-          >
-            <X size={12} />
-          </button>
-        </div>
-        {folder.children && folder.children.length > 0 && expandedFolders.has(folder.id) && (
-          renderFolderTree(folder.children, depth + 1)
-        )}
-      </div>
-    ))
-
   return (
-    <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 md:px-6 md:py-8">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 md:flex-row md:gap-6 md:px-6 md:py-8">
       {/* Sidebar */}
-      {sidebarOpen && (
-        <div className="hidden w-56 shrink-0 md:block">
-          <div className="sticky top-6 space-y-6">
-            {/* Folders */}
-            <div>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Folders</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowNewFolder(true)}
-                  className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  title="New folder"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-              {showNewFolder && (
-                <div className="mt-2 flex gap-1">
-                  <input
-                    type="text"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-                    placeholder="Folder name"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    autoFocus
-                  />
-                  <button
-                    type="button" onClick={handleCreateFolder} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
-                    Add
-                  </button>
-                </div>
-              )}
-              <div className="mt-2 space-y-0.5">
-                <div
-                  className={`flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-sm transition ${
-                    selectedFolderId === null
-                      ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-                  }`}
-                  onClick={() => setSelectedFolderId(null)}
-                >
-                  <Folder size={14} />
-                  <span>All Workflows</span>
-                  {total > 0 && (
-                    <span className="ml-auto shrink-0 rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium leading-none text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-                      {total}
-                    </span>
-                  )}
-                </div>
-                {renderFolderTree(folders)}
-                <div
-                  className={`flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-sm transition ${
-                    selectedFolderId === 'uncategorized'
-                      ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-                  }`}
-                  onClick={() => setSelectedFolderId(selectedFolderId === 'uncategorized' ? null : 'uncategorized')}
-                >
-                  <Folder size={14} />
-                  <span>Uncategorized</span>
-                </div>
-              </div>
-            </div>
+      <div className={(mobileSidebarOpen ? 'block ' : 'hidden ') + 'w-full shrink-0 md:block md:w-56'}>
+        <div className="sticky top-6 space-y-6">
+          {/* Folders */}
+          <FolderManagementPanel
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            total={total}
+            onSelect={(folderId) => {
+              setSelectedFolderId(folderId)
+              if (window.innerWidth < 768) setMobileSidebarOpen(false)
+            }}
+            onCreate={createFolder}
+            onUpdate={updateFolder}
+            onDelete={deleteFolder}
+          />
 
-            {/* Tags */}
-            <div>
+          {/* Tags */}
+          <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tags</h3>
                 <button
@@ -337,10 +246,9 @@ export function WorkflowListPage() {
                   <p className="text-xs text-gray-400 dark:text-gray-500">No tags yet</p>
                 )}
               </div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Main Content */}
       <div className="min-w-0 flex-1">
@@ -350,6 +258,15 @@ export function WorkflowListPage() {
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{total} workflow{total !== 1 ? 's' : ''}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen((open) => !open)}
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 md:hidden"
+              aria-expanded={mobileSidebarOpen}
+            >
+              <Folder size={14} />
+              Folders
+            </button>
             <button
               type="button"
               onClick={toggleTheme}
@@ -375,10 +292,29 @@ export function WorkflowListPage() {
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">New Workflow</span>
+              <span className="hidden sm:inline">
+                {typeof selectedFolderId === 'number' ? 'New Workflow Here' : 'New Workflow'}
+              </span>
             </button>
           </div>
         </div>
+
+        {activationError && (
+          <div
+            className="mt-4 flex items-start justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-300"
+            role="alert"
+          >
+            <span>{activationError}</span>
+            <button
+              type="button"
+              onClick={() => setActivationError(null)}
+              className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/50"
+              aria-label="Dismiss workflow status error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Active Filters */}
         {(selectedTagId || selectedFolderId) && (
@@ -387,7 +323,9 @@ export function WorkflowListPage() {
             {selectedFolderId && (
               <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                 <Folder size={12} />
-                {selectedFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === selectedFolderId)?.name ?? 'Folder'}
+                {selectedFolderId === 'uncategorized'
+                  ? 'Unfiled'
+                  : folderPathLabel(folders, selectedFolderId)}
                 <button
                   type="button" onClick={() => setSelectedFolderId(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600">
                   <X size={10} />
@@ -528,9 +466,11 @@ export function WorkflowListPage() {
                   >
                     <button
                       type="button"
-                      onClick={() => toggleActive(wf.id, wf.is_active)}
-                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                      title={wf.is_active ? 'Deactivate' : 'Activate'}
+                      onClick={() => handleToggleActive(wf)}
+                      disabled={togglingWorkflowId !== null}
+                      aria-pressed={wf.is_active}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-wait disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      title={togglingWorkflowId === wf.id ? 'Changing workflow status' : (wf.is_active ? 'Deactivate' : 'Activate')}
                     >
                       {wf.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                     </button>
@@ -587,6 +527,11 @@ export function WorkflowListPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Workflow</h2>
+            {typeof selectedFolderId === 'number' && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Location: {folderPathLabel(folders, selectedFolderId)}
+              </p>
+            )}
             <div className="mt-4 space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>

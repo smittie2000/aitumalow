@@ -22,11 +22,17 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const portalTarget = useEditorPortalTarget()
   if (!open) return null
+  const titleId = 'confirm-dialog-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="presentation">
+      <div
+        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <h3 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button

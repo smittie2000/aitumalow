@@ -36,14 +36,28 @@ const defaultCsrfToken = (): string | null => {
 
 export class ApiError extends Error {
   status: number
-  errors: Record<string, string[]> | null
+  errors: Record<string, string[]> | string[] | null
 
-  constructor(status: number, errors: Record<string, string[]> | null, message: string) {
+  constructor(status: number, errors: Record<string, string[]> | string[] | null, message: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.errors = errors
   }
+}
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    const details = Array.isArray(error.errors)
+      ? error.errors
+      : Object.values(error.errors ?? {}).flat()
+
+    return details.length > 0
+      ? `${error.message} ${details.join(' ')}`
+      : error.message
+  }
+
+  return error instanceof Error ? error.message : fallback
 }
 
 export function createHttpTransport(options: HttpTransportOptions = {}): HttpTransport {
@@ -97,7 +111,7 @@ export function createHttpTransport(options: HttpTransportOptions = {}): HttpTra
     })
 
     if (!res.ok) {
-      let errors: Record<string, string[]> | null = null
+      let errors: Record<string, string[]> | string[] | null = null
       let message = `HTTP ${res.status}`
       try {
         const json = await res.json()
