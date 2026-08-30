@@ -26,6 +26,21 @@ The host page owns its URL, authentication, authorization, navigation, and
 surrounding layout. The editor is a client-side island mounted into the Blade
 component.
 
+## Draft and live versions
+
+The canvas is always the editable draft. **Activate** publishes its first
+immutable version. Once a workflow is active, **Publish** creates or reuses a
+content-addressed version and moves the live pointer without deactivating the
+workflow first.
+
+The **Versions** sidebar lists every published version and identifies the live
+one. **Review** opens a visual comparison of that immutable version with a
+fresh server-side snapshot of the current draft. From there, **Restore** copies
+the selected version back into the canvas while the current live version keeps
+running. Publishing the restored draft is a separate, explicit action.
+Existing and replayed runs remain pinned to the exact version with which they
+started.
+
 </div>
 
 <div class="browser-mock">
@@ -184,6 +199,14 @@ Drag from a **source handle** (right side, blue dot) to a **target handle** (lef
   static, to keep larger canvases responsive.
 - **Auto Layout** uses each rendered node's measured size, keeps parallel
   connections distinct, and leaves sticky notes where you placed them.
+
+### Validation feedback
+
+Publishing and the execute dialog use the same server-owned graph validation.
+When validation identifies a specific node or connection, the editor marks it
+in red. Select an underlined validation message to center the affected graph
+element; node issues also open that node's configuration panel. Workflow-wide
+issues remain readable without inventing a misleading canvas target.
 
 ### Node and connection actions
 

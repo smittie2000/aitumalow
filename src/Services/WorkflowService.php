@@ -663,6 +663,77 @@ class WorkflowService
     }
 
     /**
+     * Replace the mutable editor draft with an immutable published revision.
+     *
+     * The active revision pointer is deliberately left unchanged. Restoring a
+     * revision prepares a draft for review; publishing it is a separate action.
+     */
+    public function restoreDraft(
+        int|Workflow $workflow,
+        int|WorkflowRevision $revision,
+    ): Workflow {
+        $workflow = $this->resolveWorkflow($workflow);
+        $revision = $this->resolveRevision($revision);
+
+        if ($revision->workflow_id !== $workflow->id) {
+            throw new LogicException("Revision {$revision->id} does not belong to workflow {$workflow->id}.");
+        }
+
+        $definition = $this->snapshots->fromRevision($revision);
+
+        DB::transaction(function () use ($workflow, $definition): void {
+            $locked = Workflow::query()->lockForUpdate()->findOrFail($workflow->id);
+            $locked->edges()->delete();
+            $locked->nodes()->delete();
+            $locked->update([
+                'settings' => is_array($definition['settings'] ?? null)
+                    ? $definition['settings']
+                    : [],
+            ]);
+
+            $nodeIdMap = [];
+            foreach ($definition['nodes'] ?? [] as $node) {
+                if (! is_array($node) || ! isset($node['id'], $node['key'], $node['type'])) {
+                    throw new LogicException('The workflow revision contains an invalid node definition.');
+                }
+
+                $restoredNode = $locked->nodes()->create([
+                    'type' => NodeType::from((string) $node['type']),
+                    'node_key' => (string) $node['key'],
+                    'name' => is_string($node['name'] ?? null) ? $node['name'] : null,
+                    'config' => is_array($node['config'] ?? null) ? $node['config'] : [],
+                    'pinned_data' => is_array($node['pinned_data'] ?? null) ? $node['pinned_data'] : null,
+                    'position_x' => (int) ($node['position_x'] ?? 0),
+                    'position_y' => (int) ($node['position_y'] ?? 0),
+                ]);
+                $nodeIdMap[(string) $node['id']] = $restoredNode->id;
+            }
+
+            foreach ($definition['edges'] ?? [] as $edge) {
+                if (! is_array($edge)) {
+                    throw new LogicException('The workflow revision contains an invalid edge definition.');
+                }
+
+                $sourceNodeId = $nodeIdMap[(string) ($edge['source_node_id'] ?? '')] ?? null;
+                $targetNodeId = $nodeIdMap[(string) ($edge['target_node_id'] ?? '')] ?? null;
+
+                if ($sourceNodeId === null || $targetNodeId === null) {
+                    throw new LogicException('The workflow revision contains an edge with a missing node.');
+                }
+
+                $locked->edges()->create([
+                    'source_node_id' => $sourceNodeId,
+                    'source_port' => (string) ($edge['source_port'] ?? 'main'),
+                    'target_node_id' => $targetNodeId,
+                    'target_port' => (string) ($edge['target_port'] ?? 'main'),
+                ]);
+            }
+        });
+
+        return $workflow->fresh(['nodes', 'edges', 'activeRevision']);
+    }
+
+    /**
      * Validate a workflow and return error messages.
      *
      * @return string[]

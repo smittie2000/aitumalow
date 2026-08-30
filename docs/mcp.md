@@ -45,6 +45,17 @@ are applied by the package.
 Tool results use MCP structured content so clients receive predictable objects
 instead of parsing prose or JSON embedded in text.
 
+For whole-graph edits, `get_workflow_draft` returns a structured graph with
+document-local node aliases and a `draft_hash`. The client sends the complete
+edited graph and that hash to `save_workflow_draft`. The save is transactional:
+unknown capabilities, invalid configuration, invalid ports, disconnected
+graphs, and stale hashes leave the previous draft untouched. It never publishes
+or moves the active revision pointer.
+
+This is deliberately a JSON graph contract, not executable PHP or TypeScript.
+The package does not add a second workflow DSL or an agent-controlled code
+execution surface.
+
 ## Tools
 
 | Tool | Purpose | Annotation |
@@ -54,7 +65,9 @@ instead of parsing prose or JSON embedded in text.
 | `list_workflow_references` | List scoped opaque values for a reference schema source | Read-only |
 | `list_workflows` | List workflow drafts and active workflows | Read-only |
 | `show_workflow` | Show one workflow graph | Read-only |
+| `get_workflow_draft` | Get an editable whole-graph document and concurrency hash | Read-only |
 | `create_workflow` | Create an empty workflow draft | Mutating |
+| `save_workflow_draft` | Atomically validate and replace the complete mutable graph | Mutating |
 | `update_workflow` | Update its name or description | Idempotent |
 | `add_workflow_node` | Add a registered node by exact stable key | Mutating |
 | `update_workflow_node` | Replace a stored node's validated configuration | Idempotent |
@@ -69,6 +82,11 @@ instead of parsing prose or JSON embedded in text.
 
 Folders, tags, credentials, pinned editor data, arbitrary models, and generic
 registry operations are intentionally not part of this MCP boundary.
+
+MCP clients should preserve unrelated nodes and edges when saving a complete
+draft. They must fetch again after a stale-hash error. Draft saves do not imply
+permission to activate or run: those tools are separate operations and should
+only be called when the user explicitly requests them.
 
 `run_workflow` is asynchronous: it returns the Aitumalow run ID and initial
 projection status, not a completed workflow result. Use `show_workflow_run` to

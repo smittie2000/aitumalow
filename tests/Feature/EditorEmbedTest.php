@@ -39,10 +39,11 @@ it('keeps editor buttons from submitting a host Filament form', function () {
         }
 
         $source = file_get_contents($file->getPathname());
+        if ($source === false) {
+            throw new RuntimeException("Unable to read editor source file [{$file->getPathname()}].");
+        }
         preg_match_all('/<button\\b[^>]*>/s', $source, $buttons);
 
-        foreach ($buttons[0] as $button) {
-            expect($button)->toContain('type="button"');
-        }
+        expect($buttons[0])->each->toContain('type="button"');
     }
 });

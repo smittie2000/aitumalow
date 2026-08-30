@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Play } from 'lucide-react'
+import { apiErrorDetails, apiErrorMessage } from '../../api/client'
 import { useEditorSdk } from '../../sdk/EditorSdkContext'
-import { useEditorPortalTarget } from '../../stores/EditorRuntimeProvider'
+import {
+  useEditorPortalTarget,
+  useWorkflowEditorStore,
+} from '../../stores/EditorRuntimeProvider'
 
 interface Props {
   workflowId: number
@@ -17,6 +21,10 @@ export function ExecuteModal({ workflowId, onClose, onExecuted }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const canvasValidationIssues = useWorkflowEditorStore((state) => state.validationIssues)
+  const setCanvasValidationErrors = useWorkflowEditorStore((state) => state.setValidationErrors)
+  const focusValidationIssue = useWorkflowEditorStore((state) => state.focusValidationIssue)
+  const clearCanvasValidationErrors = useWorkflowEditorStore((state) => state.clearValidationErrors)
 
   const handleValidate = async () => {
     setValidationErrors([])
@@ -24,12 +32,21 @@ export function ExecuteModal({ workflowId, onClose, onExecuted }: Props) {
       const res = await workflows.validate(workflowId)
       if (!res.valid) {
         setValidationErrors(res.errors)
+        setCanvasValidationErrors(res.errors)
       } else {
         setValidationErrors([])
         setError(null)
+        clearCanvasValidationErrors()
       }
     } catch (e) {
-      setError(String(e))
+      const details = apiErrorDetails(e)
+      if (details.length > 0) {
+        setValidationErrors(details)
+        setCanvasValidationErrors(details)
+        setError(null)
+      } else {
+        setError(apiErrorMessage(e, 'The workflow could not be validated.'))
+      }
     }
   }
 
@@ -85,9 +102,26 @@ export function ExecuteModal({ workflowId, onClose, onExecuted }: Props) {
           <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
             <p className="font-medium">Validation Issues:</p>
             <ul className="mt-1 list-inside list-disc">
-              {validationErrors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
+              {validationErrors.map((err, i) => {
+                const issue = canvasValidationIssues[i]
+                return (
+                  <li key={i}>
+                    {issue && (issue.nodeId || issue.edgeId) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          focusValidationIssue(issue)
+                          onClose()
+                        }}
+                        className="text-left underline decoration-amber-300 underline-offset-2 hover:text-amber-900 dark:decoration-amber-700 dark:hover:text-amber-100"
+                        title="Locate this issue on the canvas"
+                      >
+                        {err}
+                      </button>
+                    ) : err}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         )}

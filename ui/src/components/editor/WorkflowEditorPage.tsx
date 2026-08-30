@@ -3,9 +3,10 @@ import {
   ArrowLeft,
   Play,
   Copy,
-  ToggleLeft,
-  ToggleRight,
+  Upload,
+  Power,
   Clock,
+  History,
   Layers,
   Sun,
   Moon,
@@ -29,13 +30,14 @@ import {
   useWorkflowEditorStoreApi,
 } from '../../stores/EditorRuntimeProvider'
 import { useEditorSdk } from '../../sdk/EditorSdkContext'
-import { apiErrorMessage } from '../../api/client'
+import { apiErrorDetails, apiErrorMessage } from '../../api/client'
 import type { WorkflowTag, WorkflowFolder } from '../../api/types'
 import { Canvas } from './Canvas'
 import { ExportDropdown } from './ExportDropdown'
 import { NodePalette } from '../palette/NodePalette'
 import { NodeConfigPanel } from '../config/NodeConfigPanel'
 import { RunHistoryPanel } from '../runs/RunHistoryPanel'
+import { RevisionHistoryPanel } from '../revisions/RevisionHistoryPanel'
 import { ExecuteModal } from '../execution/ExecuteModal'
 import { TestNodeInputModal } from '../execution/TestNodeInputModal'
 import { LoadingSpinner } from '../shared/LoadingSpinner'
@@ -43,7 +45,7 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { FolderTree } from '../folders/FolderTree'
 import { folderPathLabel } from '../../lib/folders'
 
-type SidebarTab = 'palette' | 'runs'
+type SidebarTab = 'palette' | 'runs' | 'versions'
 
 export interface WorkflowEditorPageProps {
   workflowId: number
@@ -55,13 +57,28 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   const sdk = useEditorSdk()
   const registryStore = useRegistryStoreApi()
   const workflowEditorStore = useWorkflowEditorStoreApi()
-  const { workflow, isLoading, loadWorkflow, updateWorkflowMeta, reset, selectedNodeId } = useWorkflowEditorStore(useShallow((state) => ({
+  const {
+    workflow,
+    isLoading,
+    loadWorkflow,
+    updateWorkflowMeta,
+    reset,
+    selectedNodeId,
+    validationIssues,
+    setValidationErrors,
+    focusValidationIssue,
+    clearValidationErrors,
+  } = useWorkflowEditorStore(useShallow((state) => ({
     workflow: state.workflow,
     isLoading: state.isLoading,
     loadWorkflow: state.loadWorkflow,
     updateWorkflowMeta: state.updateWorkflowMeta,
     reset: state.reset,
     selectedNodeId: state.selectedNodeId,
+    validationIssues: state.validationIssues,
+    setValidationErrors: state.setValidationErrors,
+    focusValidationIssue: state.focusValidationIssue,
+    clearValidationErrors: state.clearValidationErrors,
   })))
   const fetchRegistry = useRegistryStore((state) => state.fetchRegistry)
   const {
@@ -84,7 +101,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('palette')
   const [showExecute, setShowExecute] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
-  const [isTogglingActive, setIsTogglingActive] = useState(false)
+  const [isChangingPublication, setIsChangingPublication] = useState(false)
   const [activationError, setActivationError] = useState<string | null>(null)
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false)
@@ -134,22 +151,40 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
     return () => cancelAnimationFrame(frame)
   }, [selectedNodeId])
 
-  const handleToggleActive = async () => {
-    if (!workflow || isTogglingActive) return
+  const handlePublish = async () => {
+    if (!workflow || isChangingPublication) return
 
     setActivationError(null)
-    setIsTogglingActive(true)
+    clearValidationErrors()
+    setIsChangingPublication(true)
     try {
-      if (workflow.is_active) {
-        await sdk.workflows.deactivate(workflow.id)
-      } else {
-        await sdk.workflows.activate(workflow.id)
-      }
+      await sdk.workflows.activate(workflow.id)
       await loadWorkflow(workflow.id, registryStore.getState().getByKey)
     } catch (error) {
-      setActivationError(apiErrorMessage(error, 'The workflow status could not be changed.'))
+      const details = apiErrorDetails(error)
+      if (details.length > 0) {
+        setValidationErrors(details)
+        setActivationError('The draft needs attention before it can be published.')
+      } else {
+        setActivationError(apiErrorMessage(error, 'The workflow could not be published.'))
+      }
     } finally {
-      setIsTogglingActive(false)
+      setIsChangingPublication(false)
+    }
+  }
+
+  const handleDeactivate = async () => {
+    if (!workflow || isChangingPublication) return
+
+    setActivationError(null)
+    setIsChangingPublication(true)
+    try {
+      await sdk.workflows.deactivate(workflow.id)
+      await loadWorkflow(workflow.id, registryStore.getState().getByKey)
+    } catch (error) {
+      setActivationError(apiErrorMessage(error, 'The workflow could not be deactivated.'))
+    } finally {
+      setIsChangingPublication(false)
     }
   }
 
@@ -237,6 +272,11 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           >
             {workflow.is_active ? 'Active' : 'Inactive'}
           </span>
+          {workflow.active_revision && (
+            <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
+              {workflow.is_active ? 'Live' : 'Last'} v{workflow.active_revision.version}
+            </span>
+          )}
 
           {/* Folder indicator */}
           <div className="relative" ref={folderPickerRef}>
@@ -414,21 +454,30 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             </button>
             <button
               type="button"
-              onClick={handleToggleActive}
-              disabled={isTogglingActive}
-              aria-pressed={workflow.is_active}
+              onClick={handlePublish}
+              disabled={isChangingPublication}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                 workflow.is_active
-                  ? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/30'
-                  : 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-green-600 text-white hover:bg-green-700'
               } disabled:cursor-wait disabled:opacity-50`}
-              title={workflow.is_active ? 'Deactivate' : 'Activate'}
+              title={workflow.is_active ? 'Publish the current draft as a new live version' : 'Publish and activate this workflow'}
             >
-              {workflow.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-              {isTogglingActive
-                ? (workflow.is_active ? 'Deactivating...' : 'Activating...')
-                : (workflow.is_active ? 'Active' : 'Inactive')}
+              <Upload size={14} />
+              {isChangingPublication ? 'Publishing...' : (workflow.is_active ? 'Publish' : 'Activate')}
             </button>
+            {workflow.is_active && (
+              <button
+                type="button"
+                onClick={handleDeactivate}
+                disabled={isChangingPublication}
+                className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-red-600 disabled:cursor-wait disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
+                title="Deactivate this workflow"
+              >
+                <Power size={13} />
+                <span className="hidden lg:inline">Deactivate</span>
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -449,10 +498,33 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           className="flex shrink-0 items-start justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-300"
           role="alert"
         >
-          <span>{activationError}</span>
+          <div className="min-w-0">
+            <p className="font-medium">{activationError}</p>
+            {validationIssues.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {validationIssues.map((issue, index) => (
+                  <li key={`${issue.message}-${index}`}>
+                    {issue.nodeId || issue.edgeId ? (
+                      <button
+                        type="button"
+                        onClick={() => focusValidationIssue(issue)}
+                        className="text-left underline decoration-red-300 underline-offset-2 hover:text-red-900 dark:decoration-red-700 dark:hover:text-red-100"
+                        title="Locate this issue on the canvas"
+                      >
+                        {issue.message}
+                      </button>
+                    ) : issue.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="button"
-            onClick={() => setActivationError(null)}
+            onClick={() => {
+              setActivationError(null)
+              clearValidationErrors()
+            }}
             className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/50"
             aria-label="Dismiss workflow status error"
           >
@@ -499,11 +571,26 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             >
               <Clock size={12} /> Runs
             </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab('versions')}
+              className={`flex flex-1 items-center justify-center gap-1 px-2 py-2.5 text-xs font-medium ${
+                sidebarTab === 'versions'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <History size={12} /> Versions
+            </button>
           </div>
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto p-2">
-            {sidebarTab === 'palette' ? <NodePalette /> : <RunHistoryPanel />}
+            {sidebarTab === 'palette'
+              ? <NodePalette />
+              : sidebarTab === 'runs'
+                ? <RunHistoryPanel />
+                : <RevisionHistoryPanel />}
           </div>
         </div>
 

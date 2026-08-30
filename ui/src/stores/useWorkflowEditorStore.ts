@@ -12,6 +12,15 @@ import type { Workflow, WorkflowNode, CapabilityDefinition } from '../api/types'
 import type { AitumalowEditorSdk } from '../sdk/editorSdk'
 import { apiNodeToRFNode, apiEdgeToRFEdge, type CustomNodeData } from '../lib/mappers'
 import { getAutoLayoutPositions, allNodesAtOrigin } from '../lib/autoLayout'
+import {
+  resolveWorkflowValidationIssues,
+  type WorkflowValidationIssue,
+} from '../lib/workflowValidation'
+
+export interface WorkflowValidationFocus {
+  issue: WorkflowValidationIssue
+  token: number
+}
 
 export interface WorkflowEditorStore {
   workflow: Workflow | null
@@ -23,6 +32,8 @@ export interface WorkflowEditorStore {
   selectedNodeId: string | null
   selectedApiNode: WorkflowNode | null
   selectedRegistryNode: CapabilityDefinition | undefined
+  validationIssues: WorkflowValidationIssue[]
+  validationFocus: WorkflowValidationFocus | null
 
   loadWorkflow: (id: number, registryLookup: (key: string) => CapabilityDefinition | undefined) => Promise<void>
   updateWorkflowMeta: (data: { name?: string; description?: string; folder_id?: number | null; tag_ids?: number[]; settings?: Record<string, unknown> | null }) => Promise<void>
@@ -51,6 +62,9 @@ export interface WorkflowEditorStore {
   unpinNode: (nodeId: number) => Promise<void>
 
   selectNode: (nodeId: string | null) => void
+  setValidationErrors: (errors: string[]) => void
+  focusValidationIssue: (issue: WorkflowValidationIssue) => void
+  clearValidationErrors: () => void
   reset: () => void
 }
 
@@ -62,6 +76,8 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
   selectedNodeId: null,
   selectedApiNode: null,
   selectedRegistryNode: undefined,
+  validationIssues: [],
+  validationFocus: null,
 
   loadWorkflow: async (id, registryLookup) => {
     set({ isLoading: true })
@@ -73,7 +89,15 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
       if (allNodesAtOrigin(rfNodes)) {
         rfNodes = getAutoLayoutPositions(rfNodes, rfEdges)
       }
-      set({ workflow: wf, rfNodes, rfEdges, selectedNodeId: null, selectedApiNode: null })
+      set({
+        workflow: wf,
+        rfNodes,
+        rfEdges,
+        selectedNodeId: null,
+        selectedApiNode: null,
+        validationIssues: [],
+        validationFocus: null,
+      })
     } finally {
       set({ isLoading: false })
     }
@@ -84,6 +108,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     if (!wf) return
     const res = await sdk.workflows.update(wf.id, data)
     set({ workflow: res.data })
+    get().clearValidationErrors()
   },
 
   addNode: async (nodeKey, position, registryNode) => {
@@ -103,6 +128,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     })
     const newNode = apiNodeToRFNode(res.data, registryNode)
     set({ rfNodes: [...get().rfNodes, newNode] })
+    get().clearValidationErrors()
   },
 
   updateNodeConfig: async (nodeId, config) => {
@@ -121,6 +147,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
       }),
       selectedApiNode: get().selectedNodeId === String(nodeId) ? res.data : get().selectedApiNode,
     })
+    get().clearValidationErrors()
   },
 
   setNodeLabel: (nodeId, label) => {
@@ -132,6 +159,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
         return n
       }),
     })
+    get().clearValidationErrors()
   },
 
   setNodeConfig: (nodeId, config) => {
@@ -143,6 +171,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
         return n
       }),
     })
+    get().clearValidationErrors()
   },
 
   updateNodeLabel: async (nodeId, label) => {
@@ -160,6 +189,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
         return n
       }),
     })
+    get().clearValidationErrors()
   },
 
   deleteNode: async (nodeId) => {
@@ -175,6 +205,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
       selectedNodeId: get().selectedNodeId === nodeIdStr ? null : get().selectedNodeId,
       selectedApiNode: get().selectedNodeId === nodeIdStr ? null : get().selectedApiNode,
     })
+    get().clearValidationErrors()
   },
 
   updateNodePosition: async (nodeId, x, y) => {
@@ -212,6 +243,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     })
     const newEdge = apiEdgeToRFEdge(res.data)
     set({ rfEdges: [...get().rfEdges, newEdge] })
+    get().clearValidationErrors()
   },
 
   deleteEdge: async (edgeId) => {
@@ -219,6 +251,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     if (!wf) return
     await sdk.edges.destroy(wf.id, edgeId)
     set({ rfEdges: get().rfEdges.filter((e) => e.id !== String(edgeId)) })
+    get().clearValidationErrors()
   },
 
   onNodesChange: (changes) => {
@@ -274,6 +307,102 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     }
   },
 
+  setValidationErrors: (errors) => {
+    const state = get()
+    const issues = resolveWorkflowValidationIssues(
+      errors,
+      state.rfNodes.map((node) => ({ id: node.id, label: node.data.label })),
+    )
+    const nodeMessages = new Map<string, string[]>()
+    const edgeMessages = new Map<string, string[]>()
+
+    for (const issue of issues) {
+      if (issue.nodeId) {
+        nodeMessages.set(issue.nodeId, [...(nodeMessages.get(issue.nodeId) ?? []), issue.message])
+      }
+      if (issue.edgeId) {
+        edgeMessages.set(issue.edgeId, [...(edgeMessages.get(issue.edgeId) ?? []), issue.message])
+      }
+    }
+
+    set({
+      validationIssues: issues,
+      validationFocus: null,
+      rfNodes: state.rfNodes.map((node) => {
+        const messages = nodeMessages.get(node.id) ?? []
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            invalid: messages.length > 0,
+            validationMessage: messages.length > 0 ? messages.join('\n') : null,
+          },
+        }
+      }),
+      rfEdges: state.rfEdges.map((edge) => {
+        const messages = edgeMessages.get(edge.id) ?? []
+        return {
+          ...edge,
+          data: {
+            ...(edge.data ?? {}),
+            invalid: messages.length > 0,
+            validationMessage: messages.length > 0 ? messages.join('\n') : null,
+          },
+          animated: messages.length > 0,
+          style: {
+            ...(edge.style ?? {}),
+            stroke: messages.length > 0 ? '#ef4444' : undefined,
+          },
+        }
+      }),
+    })
+  },
+
+  focusValidationIssue: (issue) => {
+    const state = get()
+    const selectedNode = issue.nodeId
+      ? state.rfNodes.find((node) => node.id === issue.nodeId)
+      : undefined
+
+    set({
+      rfNodes: state.rfNodes.map((node) => ({
+        ...node,
+        selected: issue.nodeId === node.id,
+      })),
+      rfEdges: state.rfEdges.map((edge) => ({
+        ...edge,
+        selected: issue.edgeId === edge.id,
+      })),
+      selectedNodeId: selectedNode?.id ?? null,
+      selectedApiNode: selectedNode?.data.apiNode ?? null,
+      selectedRegistryNode: selectedNode?.data.registryNode,
+      validationFocus: {
+        issue,
+        token: (state.validationFocus?.token ?? 0) + 1,
+      },
+    })
+  },
+
+  clearValidationErrors: () => {
+    const state = get()
+    if (state.validationIssues.length === 0 && state.validationFocus === null) return
+
+    set({
+      validationIssues: [],
+      validationFocus: null,
+      rfNodes: state.rfNodes.map((node) => ({
+        ...node,
+        data: { ...node.data, invalid: false, validationMessage: null },
+      })),
+      rfEdges: state.rfEdges.map((edge) => ({
+        ...edge,
+        data: { ...(edge.data ?? {}), invalid: false, validationMessage: null },
+        animated: false,
+        style: { ...(edge.style ?? {}), stroke: undefined },
+      })),
+    })
+  },
+
   reset: () => {
     set({
       workflow: null,
@@ -282,6 +411,8 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
       selectedNodeId: null,
       selectedApiNode: null,
       selectedRegistryNode: undefined,
+      validationIssues: [],
+      validationFocus: null,
     })
   },
 }))

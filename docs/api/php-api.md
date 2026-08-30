@@ -269,9 +269,15 @@ Workflow::duplicate(int|Workflow $workflow): Workflow            // copies tags
 ```php
 Workflow::activate(int|Workflow $workflow): Workflow
 Workflow::publish(int|Workflow $workflow, ?string $principalReference = null): WorkflowRevision
+Workflow::restoreDraft(int|Workflow $workflow, int|WorkflowRevision $revision): Workflow
 Workflow::deactivate(int|Workflow $workflow): Workflow
 Workflow::validate(int|Workflow $workflow): array
 ```
+
+`restoreDraft()` atomically copies a published version back into the mutable
+editor graph, including its settings, pinned test data, and saved layout. It
+does not move the active revision pointer; call `activate()` separately after
+reviewing the restored draft.
 
 ### Builder
 

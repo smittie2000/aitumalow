@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ApiError, apiErrorMessage } from '../src/api/client.ts'
+import { ApiError, apiErrorDetails, apiErrorMessage } from '../src/api/client.ts'
 
 test('apiErrorMessage includes workflow validation details returned by the API', () => {
   const error = new ApiError(
@@ -26,4 +26,17 @@ test('apiErrorMessage supports Laravel field validation errors', () => {
     apiErrorMessage(error, 'Request failed.'),
     'The given data was invalid. The name field is required.',
   )
+})
+
+test('apiErrorDetails preserves structured messages for canvas validation', () => {
+  const error = new ApiError(
+    422,
+    ["Node 'Send email' (id:42): The recipient field is required."],
+    'Workflow validation failed.',
+  )
+
+  assert.deepEqual(apiErrorDetails(error), [
+    "Node 'Send email' (id:42): The recipient field is required.",
+  ])
+  assert.deepEqual(apiErrorDetails(new Error('Network unavailable')), [])
 })

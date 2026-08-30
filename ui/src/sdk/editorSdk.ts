@@ -2,6 +2,7 @@ import { createCatalogApi } from '../api/catalog'
 import { createEdgesApi } from '../api/edges'
 import { createFoldersApi } from '../api/folders'
 import { createReferencesApi } from '../api/references'
+import { createRevisionsApi } from '../api/revisions'
 import { createNodesApi } from '../api/nodes'
 import { createRunsApi } from '../api/runs'
 import { createTagsApi } from '../api/tags'
@@ -22,6 +23,7 @@ export interface AitumalowEditorSdk {
   tags: ReturnType<typeof createTagsApi>
   folders: ReturnType<typeof createFoldersApi>
   references: ReturnType<typeof createReferencesApi>
+  revisions: ReturnType<typeof createRevisionsApi>
 }
 
 export interface CreateEditorSdkOptions extends HttpTransportOptions {
@@ -42,5 +44,6 @@ export function createEditorSdk(options: CreateEditorSdkOptions = {}): Aitumalow
     tags: createTagsApi(transport),
     folders: createFoldersApi(transport),
     references: createReferencesApi(transport),
+    revisions: createRevisionsApi(transport),
   }
 }

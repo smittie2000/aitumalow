@@ -383,6 +383,43 @@ POST /workflow-engine/runs/{runId}/replay
 
 Creates a new run with the same payload as the original.
 
+## Versions
+
+Published versions are immutable snapshots. Editing always changes the mutable
+draft; activating publishes that draft and moves the live-version pointer.
+
+### List Versions
+
+```http
+GET /workflow-engine/workflows/{workflowId}/revisions
+```
+
+Returns published versions newest first. Each item includes its version,
+content hash, publisher reference, publication time, and whether it is the
+workflow's current live version.
+
+### Compare a Version with the Draft
+
+```http
+GET /workflow-engine/workflows/{workflowId}/revisions/{revisionId}/compare-draft
+```
+
+Returns the selected immutable definition and a fresh server-side snapshot of
+the mutable draft. The editor uses these definitions to show settings, node,
+configuration, pinned-data, layout, and connection changes before restoration.
+The endpoint is read-only and rejects revisions belonging to another workflow.
+
+### Restore a Version to the Draft
+
+```http
+POST /workflow-engine/workflows/{workflowId}/revisions/{revisionId}/restore-draft
+```
+
+Atomically replaces the editable nodes, edges, settings, pinned test data, and
+saved canvas positions with the selected version. This does not change the
+live-version pointer, active schedules, existing runs, or Durable history.
+Call the activate endpoint separately after reviewing the restored draft.
+
 
 ## Capability Catalog
 

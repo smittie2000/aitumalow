@@ -112,6 +112,24 @@ it('reactivates a deactivated workflow', function () {
     expect($workflow->revisions()->count())->toBe(1);
 });
 
+it('publishes draft changes while the workflow remains active', function () {
+    $workflow = Workflow::factory()->create(['is_active' => false]);
+    $trigger = WorkflowNode::factory()->trigger()->create(['workflow_id' => $workflow->id]);
+
+    $this->postJson("/workflow-engine/workflows/{$workflow->id}/activate")
+        ->assertOk()
+        ->assertJsonPath('data.active_revision.version', 1);
+
+    $trigger->update(['name' => 'Updated draft trigger']);
+
+    $this->postJson("/workflow-engine/workflows/{$workflow->id}/activate")
+        ->assertOk()
+        ->assertJsonPath('data.is_active', true)
+        ->assertJsonPath('data.active_revision.version', 2);
+
+    expect($workflow->revisions()->count())->toBe(2);
+});
+
 it('refuses to activate an invalid workflow', function () {
     $workflow = Workflow::factory()->create(['is_active' => false]);
 
@@ -194,14 +212,28 @@ it('adds loop and delay nodes from their catalog defaults', function () {
     $catalog = $this->getJson('/workflow-engine/catalog')
         ->assertOk()
         ->json('data');
+    if (! is_array($catalog)) {
+        throw new RuntimeException('The capability catalog response must be an array.');
+    }
 
     foreach (['core.loop', 'core.delay'] as $nodeKey) {
-        $schema = collect($catalog)
-            ->firstWhere('key', $nodeKey)['config_schema'];
-        $config = collect($schema)
-            ->filter(fn (array $field): bool => array_key_exists('default', $field))
-            ->mapWithKeys(fn (array $field): array => [$field['key'] => $field['default']])
-            ->all();
+        $definition = array_find(
+            $catalog,
+            fn ($candidate): bool => is_array($candidate) && ($candidate['key'] ?? null) === $nodeKey,
+        );
+        $schema = is_array($definition) ? ($definition['config_schema'] ?? null) : null;
+        if (! is_array($schema)) {
+            throw new RuntimeException("Capability [{$nodeKey}] must provide a configuration schema.");
+        }
+
+        $config = [];
+        foreach ($schema as $field) {
+            if (is_array($field)
+                && is_string($field['key'] ?? null)
+                && array_key_exists('default', $field)) {
+                $config[$field['key']] = $field['default'];
+            }
+        }
 
         $this->postJson("/workflow-engine/workflows/{$workflow->id}/nodes", [
             'node_key' => $nodeKey,

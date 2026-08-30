@@ -53,6 +53,7 @@ export function Canvas() {
     deleteEdge,
     selectNode,
     autoLayout,
+    validationFocus,
   } = useWorkflowEditorStore(useShallow((state) => ({
     rfNodes: state.rfNodes,
     rfEdges: state.rfEdges,
@@ -64,6 +65,7 @@ export function Canvas() {
     deleteEdge: state.deleteEdge,
     selectNode: state.selectNode,
     autoLayout: state.autoLayout,
+    validationFocus: state.validationFocus,
   })))
   const getByKey = useRegistryStore((s) => s.getByKey)
   const savePosition = useAutoSavePosition()
@@ -73,6 +75,31 @@ export function Canvas() {
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null)
   const [showMiniMap, setShowMiniMap] = useState(false)
   const [showLayoutConfirm, setShowLayoutConfirm] = useState(false)
+
+  useEffect(() => {
+    if (!validationFocus) return
+
+    const state = workflowEditorStore.getState()
+    const { issue } = validationFocus
+    if (issue.nodeId) {
+      const node = state.rfNodes.find((candidate) => candidate.id === issue.nodeId)
+      if (node) {
+        void fitView({ nodes: [node], duration: 400, padding: 0.7 })
+      }
+      return
+    }
+
+    if (issue.edgeId) {
+      const edge = state.rfEdges.find((candidate) => candidate.id === issue.edgeId)
+      if (!edge) return
+      const connectedNodes = state.rfNodes.filter(
+        (node) => node.id === edge.source || node.id === edge.target,
+      )
+      if (connectedNodes.length > 0) {
+        void fitView({ nodes: connectedNodes, duration: 400, padding: 0.7 })
+      }
+    }
+  }, [fitView, validationFocus, workflowEditorStore])
 
   const onConnect = useCallback(
     (connection: Connection) => {

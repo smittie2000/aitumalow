@@ -46,11 +46,17 @@ export class ApiError extends Error {
   }
 }
 
+export function apiErrorDetails(error: unknown): string[] {
+  if (!(error instanceof ApiError)) return []
+
+  return Array.isArray(error.errors)
+    ? error.errors
+    : Object.values(error.errors ?? {}).flat()
+}
+
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
-    const details = Array.isArray(error.errors)
-      ? error.errors
-      : Object.values(error.errors ?? {}).flat()
+    const details = apiErrorDetails(error)
 
     return details.length > 0
       ? `${error.message} ${details.join(' ')}`

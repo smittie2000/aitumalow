@@ -11,6 +11,7 @@ use Aitumalow\Http\Controllers\WorkflowController;
 use Aitumalow\Http\Controllers\WorkflowEdgeController;
 use Aitumalow\Http\Controllers\WorkflowNodeController;
 use Aitumalow\Http\Controllers\WorkflowReferenceController;
+use Aitumalow\Http\Controllers\WorkflowRevisionController;
 use Aitumalow\Http\Controllers\WorkflowRunController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,9 @@ final class EditorApiRoutes
             Route::post('workflows/{workflow}/run', [WorkflowController::class, 'run']);
             Route::post('workflows/{workflow}/duplicate', [WorkflowController::class, 'duplicate']);
             Route::post('workflows/{workflow}/validate', [WorkflowController::class, 'validateWorkflow']);
+            Route::get('workflows/{workflow}/revisions', [WorkflowRevisionController::class, 'index']);
+            Route::get('workflows/{workflow}/revisions/{revision}/compare-draft', [WorkflowRevisionController::class, 'compareDraft']);
+            Route::post('workflows/{workflow}/revisions/{revision}/restore-draft', [WorkflowRevisionController::class, 'restoreDraft']);
             Route::post('workflows/{workflow}/test-node', [WorkflowRunController::class, 'testNode']);
 
             Route::post('workflows/{workflow}/nodes', [WorkflowNodeController::class, 'store']);

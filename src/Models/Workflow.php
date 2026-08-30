@@ -174,6 +174,14 @@ class Workflow extends Model
         return $this;
     }
 
+    public function restoreDraft(int|WorkflowRevision $revision): static
+    {
+        $this->service()->restoreDraft($this, $revision);
+        $this->refresh();
+
+        return $this;
+    }
+
     /** @return array<int, string> */
     public function validateGraph(): array
     {

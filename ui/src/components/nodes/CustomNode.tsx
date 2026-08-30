@@ -5,7 +5,7 @@ import { NODE_TYPE_COLORS } from '../../lib/constants'
 import { NODE_TYPE_ICON } from './nodeStyles'
 import type { NodeType } from '../../api/types'
 import { useRunStore } from '../../stores/EditorRuntimeProvider'
-import { CheckCircle2, XCircle, Loader2, Pin, Play } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle, Loader2, Pin, Play } from 'lucide-react'
 
 function CustomNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as CustomNodeData
@@ -23,6 +23,7 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
   const isTestingNode = useRunStore((s) => s.isTestingNode)
   const requestNodeTest = useRunStore((s) => s.requestNodeTest)
   const hasPinnedData = !!(nodeData.apiNode?.pinned_data?.input || nodeData.apiNode?.pinned_data?.output)
+  const isInvalid = nodeData.invalid === true
 
   const handleRunClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -34,8 +35,12 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
   return (
     <div
       className={`group relative min-w-40 rounded-lg border-l-4 bg-white dark:bg-gray-800 shadow-md ${colors.border} ${
-        selected ? 'ring-2 ring-blue-400' : ''
+        isInvalid
+          ? 'ring-2 ring-red-500 shadow-red-200 dark:shadow-red-950'
+          : selected ? 'ring-2 ring-blue-400' : ''
       }`}
+      aria-invalid={isInvalid || undefined}
+      title={nodeData.validationMessage ?? undefined}
     >
       {/* Pinned Data Badge */}
       {hasPinnedData && (
@@ -44,9 +49,18 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
         </div>
       )}
 
+      {isInvalid && (
+        <div
+          className="absolute -right-1.5 -top-1.5 z-20 rounded-full bg-white text-red-500 dark:bg-gray-800"
+          aria-label="Node has validation errors"
+        >
+          <AlertTriangle size={16} />
+        </div>
+      )}
+
       {/* Test Status Badge */}
       {(testResult || (isTestingNode && !hasNodeTestResults)) && (
-        <div className="absolute -right-1.5 -top-1.5 z-10">
+        <div className={`absolute -top-1.5 z-10 ${isInvalid ? 'right-4' : '-right-1.5'}`}>
           {testResult?.status === 'completed' && (
             <CheckCircle2 size={16} className="rounded-full bg-white text-green-500 dark:bg-gray-800" />
           )}

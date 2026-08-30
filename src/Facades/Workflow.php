@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Aitumalow\Models\Workflow duplicate(int|\Aitumalow\Models\Workflow $workflow)
  * @method static \Aitumalow\Models\WorkflowRevision publish(int|\Aitumalow\Models\Workflow $workflow, ?string $principalReference = null)
  * @method static \Aitumalow\Models\Workflow activate(int|\Aitumalow\Models\Workflow $workflow, int|\Aitumalow\Models\WorkflowRevision|null $revision = null)
+ * @method static \Aitumalow\Models\Workflow restoreDraft(int|\Aitumalow\Models\Workflow $workflow, int|\Aitumalow\Models\WorkflowRevision $revision)
  * @method static \Aitumalow\Models\Workflow deactivate(int|\Aitumalow\Models\Workflow $workflow)
  * @method static array<int, string> validate(int|\Aitumalow\Models\Workflow $workflow)
  * @method static \Aitumalow\Models\WorkflowNode addNode(int|\Aitumalow\Models\Workflow $workflow, string $nodeKey, array<string, mixed> $config = [], ?string $name = null)

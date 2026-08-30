@@ -7,8 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-30
+
 ### Added
 
+- Added editor-visible immutable version history with live-version markers and
+  a visual comparison against the current draft before restoring any published
+  version.
+- Added version-list, compare-draft, and restore-draft endpoints for
+  host-mounted editor APIs.
+- Added canvas-level workflow validation feedback: invalid nodes and
+  connections are highlighted, and actionable errors locate the affected
+  graph element.
+- Added MCP whole-draft authoring with `get_workflow_draft` and
+  `save_workflow_draft`, including transactional graph validation, stale-draft
+  detection, and protection of the active immutable revision.
 - Added node and connection context menus with confirmation before deletion.
 - Added multi-selection and keyboard deletion that avoids capturing keystrokes
   from form controls.
@@ -21,6 +34,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Separated publishing from deactivation in the editor so an active workflow
+  can publish draft changes without interrupting its current live version.
+- Included editor node positions in newly published revision snapshots so a
+  restored draft keeps its visual layout.
 - Upgraded React Flow to 12.11.5 and Dagre to 3.1.1.
 - Improved canvas navigation, selection auto-panning, visible-element rendering,
   edge interaction targets, and editor store subscriptions.
@@ -50,4 +67,5 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   validation errors in both the workflow library and editor, while preventing
   duplicate status-toggle requests.
 
-[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/smittie2000/aitumalow/compare/v0.2.0...v0.3.0

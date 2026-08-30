@@ -9,6 +9,8 @@ export interface CustomNodeData extends Record<string, unknown> {
   nodeType: string
   inputPorts: string[]
   outputPorts: string[]
+  invalid?: boolean
+  validationMessage?: string | null
 }
 
 export function apiNodeToRFNode(

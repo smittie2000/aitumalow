@@ -24,6 +24,8 @@ export interface Workflow {
   name: string
   description: string | null
   is_active: boolean
+  active_revision_id: number | null
+  active_revision?: WorkflowRevision | null
   settings: Record<string, unknown> | null
   created_via: CreatedVia | null
   folder_id: number | null
@@ -33,6 +35,56 @@ export interface Workflow {
   updated_at: string
   nodes?: WorkflowNode[]
   edges?: WorkflowEdge[]
+}
+
+export interface WorkflowRevision {
+  id: number
+  ulid: string
+  workflow_id: number
+  version: number
+  definition_hash: string
+  published_by_reference: string | null
+  published_at: string
+  is_active: boolean
+}
+
+export interface WorkflowRevisionDefinition {
+  version: number
+  workflow_id: number
+  trigger_node_id: number | null
+  settings: Record<string, unknown>
+  node_name_map: Record<string, number>
+  nodes: WorkflowRevisionNodeDefinition[]
+  edges: WorkflowRevisionEdgeDefinition[]
+  workflow_revision_id?: number
+  workflow_revision_version?: number
+  workflow_revision_hash?: string
+}
+
+export interface WorkflowRevisionNodeDefinition {
+  id: number
+  key: string
+  name: string | null
+  type: string
+  config: Record<string, unknown>
+  pinned_data: PinnedData | null
+  position_x: number | null
+  position_y: number | null
+  input_ports: string[]
+  output_ports: string[]
+}
+
+export interface WorkflowRevisionEdgeDefinition {
+  source_node_id: number
+  source_port: string
+  target_node_id: number
+  target_port: string
+}
+
+export interface WorkflowRevisionComparison {
+  revision: WorkflowRevision
+  revision_definition: WorkflowRevisionDefinition
+  draft_definition: WorkflowRevisionDefinition
 }
 
 export interface PinnedData {

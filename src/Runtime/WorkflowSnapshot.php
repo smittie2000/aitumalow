@@ -53,6 +53,8 @@ final readonly class WorkflowSnapshot
                     'type' => $node->type->value,
                     'config' => $node->config ?? [],
                     'pinned_data' => $node->pinned_data,
+                    'position_x' => $node->position_x,
+                    'position_y' => $node->position_y,
                     'input_ports' => $definition['input_ports'] ?? [],
                     'output_ports' => $outputPorts,
                 ];
