@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
+    - vendor/pestphp/pest-plugin-phpstan/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
+
+parameters:
+
+    paths:
+        - src/
+        - tests/
+
+    # Level 10 is the highest level.
+    level: 7
+
+    databaseMigrationsPath:
+        - database/migrations
+
+    # Package services must not retain request state under long-lived workers.
+    checkOctaneCompatibility: true

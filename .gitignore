@@ -1,0 +1,38 @@
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# PHPUnit / Pest
+.phpunit.result.cache
+.phpunit.cache/
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/node_modules/
+**/.vitepress/dist/
+**/.vitepress/cache/
+
+# Workflow UI
+ui/node_modules/
+
+# Laravel test artifacts
+storage/
+bootstrap/cache/
+CLAUDE.md

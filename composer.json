@@ -1,0 +1,98 @@
+{
+  "name": "aitumalow/aitumalow",
+  "description": "A Laravel-native visual workflow builder powered by Durable Workflow.",
+  "homepage": "https://github.com/smittie2000/aitumalow",
+  "type": "library",
+  "keywords": [
+    "automation",
+    "filament",
+    "laravel",
+    "workflow"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Aftandil Mammadov",
+      "role": "Original Author"
+    },
+    {
+      "name": "Aitumalow contributors",
+      "role": "Maintainers"
+    }
+  ],
+  "require": {
+    "php": "^8.4",
+    "dragonmantank/cron-expression": "^3.6",
+    "durable-workflow/workflow": ">=2.0.0-rc.52 <2.1.0",
+    "filament/filament": "^5.0",
+    "illuminate/contracts": "^13.0",
+    "illuminate/database": "^13.0",
+    "illuminate/events": "^13.0",
+    "illuminate/http": "^13.0",
+    "illuminate/support": "^13.0",
+    "spatie/laravel-package-tools": "^1.92"
+  },
+  "require-dev": {
+    "driftingly/rector-laravel": "^2.5",
+    "larastan/larastan": "^3.0",
+    "laravel/mcp": "^0.9.4",
+    "laravel/pint": "^1.27",
+    "orchestra/testbench": "^11.0",
+    "pestphp/pest": "^5.0",
+    "pestphp/pest-plugin-laravel": "^5.0",
+    "pestphp/pest-plugin-phpstan": "^5.0",
+    "pestphp/pest-plugin-rector": "^5.0",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-mockery": "^2.0",
+    "rector/rector": "^2.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "Aitumalow\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Aitumalow\\Database\\Factories\\": "database/factories/",
+      "Aitumalow\\Tests\\": "tests/"
+    },
+    "exclude-from-classmap": [
+      "tests/Unit/Plugin/PluginSystemTest.php",
+      "tests/Unit/Registry/NodeRegistryTest.php"
+    ]
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Aitumalow\\AitumalowServiceProvider"
+      ],
+      "aliases": {
+        "Workflow": "Aitumalow\\Facades\\Workflow",
+        "WorkflowAutomation": "Aitumalow\\Facades\\WorkflowAutomation"
+      }
+    }
+  },
+  "suggest": {
+    "laravel/mcp": "Required for optional MCP server support (^0.9)"
+  },
+  "support": {
+    "issues": "https://github.com/smittie2000/aitumalow/issues",
+    "source": "https://github.com/smittie2000/aitumalow"
+  },
+  "scripts": {
+    "test": "pest",
+    "format": "pint",
+    "format:test": "pint --test",
+    "phpstan": "phpstan analyse --debug --memory-limit=2G --no-progress",
+    "rector": "rector process",
+    "rector:test": "rector process --dry-run"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    },
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
