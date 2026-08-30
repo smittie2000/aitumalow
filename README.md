@@ -155,12 +155,6 @@ composer test
 composer format:test
 ```
 
-## Attribution
-
-Aitumalow is derived from Aftandil Mammadov's
-[`laravel-workflow-automation`](https://github.com/aftandilmmd/laravel-workflow-automation).
-The original author notice is preserved in the license.
-
 ## License
 
 Aitumalow is open-source software licensed under the [MIT License](LICENSE).

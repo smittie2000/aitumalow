@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Save, Play, Loader2, Settings, Database, Pin, PinOff, BookOpen, ChevronDown, ChevronRight, ArrowDownLeft } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useRunStore, useWorkflowEditorStore } from '../../stores/EditorRuntimeProvider'
 import { useEditorSdk } from '../../sdk/EditorSdkContext'
 import type { AvailableVariablesResponse } from '../../api/types'
@@ -20,8 +21,23 @@ interface NodeConfigPanelProps {
 export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
   const { nodes } = useEditorSdk()
   const { workflow, selectedApiNode, selectedRegistryNode, selectNode, updateNodeConfig, updateNodeLabel, setNodeLabel, setNodeConfig, pinNode, unpinNode } =
-    useWorkflowEditorStore()
-  const { nodeTestResults, isTestingNode, testNode } = useRunStore()
+    useWorkflowEditorStore(useShallow((state) => ({
+      workflow: state.workflow,
+      selectedApiNode: state.selectedApiNode,
+      selectedRegistryNode: state.selectedRegistryNode,
+      selectNode: state.selectNode,
+      updateNodeConfig: state.updateNodeConfig,
+      updateNodeLabel: state.updateNodeLabel,
+      setNodeLabel: state.setNodeLabel,
+      setNodeConfig: state.setNodeConfig,
+      pinNode: state.pinNode,
+      unpinNode: state.unpinNode,
+    })))
+  const { nodeTestResults, isTestingNode, testNode } = useRunStore(useShallow((state) => ({
+    nodeTestResults: state.nodeTestResults,
+    isTestingNode: state.isTestingNode,
+    testNode: state.testNode,
+  })))
 
   const [localConfig, setLocalConfig] = useState<Record<string, unknown>>(selectedApiNode?.config ?? {})
   const [localLabel, setLocalLabel] = useState(selectedApiNode?.name ?? '')
@@ -134,6 +150,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
           <div className="text-[10px] text-gray-400 dark:text-gray-500">{selectedApiNode.node_key}</div>
         </div>
         <button
+          type="button"
           onClick={() => selectNode(null)}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
         >
@@ -145,6 +162,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
       {!isAnnotation && (
         <div className="flex border-b border-gray-200 dark:border-gray-700">
           <button
+            type="button"
             onClick={() => setTab('config')}
             className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
               tab === 'config'
@@ -155,6 +173,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
             <Settings size={12} /> Config
           </button>
           <button
+            type="button"
             onClick={() => setTab('output')}
             className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
               tab === 'output'
@@ -173,6 +192,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
           </button>
           {docContent && (
             <button
+              type="button"
               onClick={() => setTab('docs')}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
                 tab === 'docs'
@@ -197,6 +217,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
             </span>
           </div>
           <button
+            type="button"
             onClick={handleUnpin}
             disabled={isPinning}
             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/40"
@@ -245,6 +266,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
         <div className="flex gap-2">
           {isDirty && tab === 'config' && (
             <button
+              type="button"
               onClick={handleSave}
               disabled={isSaving}
               className="flex flex-1 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
@@ -255,6 +277,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
           )}
           {!isAnnotation && tab !== 'docs' && (
             <button
+              type="button"
               onClick={() => setShowTestModal(true)}
               disabled={isTestingNode}
               className={`flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 ${
@@ -361,6 +384,7 @@ function NodeOutputView({ nodeResult, pinnedData, onPin, onUnpin, isPinning, sel
             </div>
             {nodeResult.status === 'completed' && nodeResult.output && (
               <button
+                type="button"
                 onClick={hasPinned ? onUnpin : onPin}
                 disabled={isPinning}
                 className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50 ${
@@ -406,6 +430,7 @@ function UpstreamInputSection({ upstream }: { upstream: UpstreamInput }) {
   return (
     <div className="rounded-md border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
       >

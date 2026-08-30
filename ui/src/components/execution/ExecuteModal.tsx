@@ -60,7 +60,8 @@ export function ExecuteModal({ workflowId, onClose, onExecuted }: Props) {
       <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Execute Workflow</h2>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-700">
+          <button
+            type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-700">
             <X size={18} />
           </button>
         </div>
@@ -93,12 +94,14 @@ export function ExecuteModal({ workflowId, onClose, onExecuted }: Props) {
 
         <div className="mt-4 flex justify-end gap-2">
           <button
+            type="button"
             onClick={handleValidate}
             className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             Validate
           </button>
           <button
+            type="button"
             onClick={handleExecute}
             disabled={isRunning}
             className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"

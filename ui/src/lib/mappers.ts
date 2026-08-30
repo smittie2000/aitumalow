@@ -44,7 +44,8 @@ export function apiEdgeToRFEdge(apiEdge: WorkflowEdge): Edge {
     sourceHandle: apiEdge.source_port,
     targetHandle: apiEdge.target_port,
     type: 'smoothstep',
-    animated: true,
+    interactionWidth: 24,
+    style: { strokeWidth: 2 },
     data: { apiEdge },
   }
 }

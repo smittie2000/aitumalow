@@ -49,6 +49,7 @@ export function RunDetailModal({ run, onClose }: Props) {
           <div className="flex items-center gap-2">
             {canCancel && (
               <button
+                type="button"
                 onClick={() => cancelRun(run.id)}
                 className="flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
               >
@@ -56,6 +57,7 @@ export function RunDetailModal({ run, onClose }: Props) {
               </button>
             )}
             <button
+              type="button"
               onClick={() => replayRun(run.id)}
               disabled={isReplaying}
               className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
@@ -63,7 +65,8 @@ export function RunDetailModal({ run, onClose }: Props) {
               {isReplaying ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
               {isReplaying ? 'Replaying...' : 'Replay'}
             </button>
-            <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-700">
+            <button
+              type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-700">
               <X size={18} />
             </button>
           </div>
@@ -123,6 +126,7 @@ export function RunDetailModal({ run, onClose }: Props) {
                           #{nr.node_id}
                           {nr.status === 'failed' && (
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 focusNode(nr.node_id)

@@ -168,6 +168,30 @@ it('adds a node to a workflow', function () {
         ->assertJsonPath('data.name', 'My Trigger');
 });
 
+it('adds loop and delay nodes from their catalog defaults', function () {
+    $workflow = Workflow::factory()->create();
+    $catalog = $this->getJson('/workflow-engine/catalog')
+        ->assertOk()
+        ->json('data');
+
+    foreach (['core.loop', 'core.delay'] as $nodeKey) {
+        $schema = collect($catalog)
+            ->firstWhere('key', $nodeKey)['config_schema'];
+        $config = collect($schema)
+            ->filter(fn (array $field): bool => array_key_exists('default', $field))
+            ->mapWithKeys(fn (array $field): array => [$field['key'] => $field['default']])
+            ->all();
+
+        $this->postJson("/workflow-engine/workflows/{$workflow->id}/nodes", [
+            'node_key' => $nodeKey,
+            'config' => $config,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.node_key', $nodeKey)
+            ->assertJsonPath('data.config', $config);
+    }
+});
+
 it('rejects unnamespaced node keys', function () {
     $workflow = Workflow::factory()->create();
 

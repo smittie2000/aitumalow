@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow,
   MiniMap,
@@ -8,12 +8,14 @@ import {
   type OnSelectionChangeFunc,
   type OnNodeDrag,
   type Connection,
+  type FitViewOptions,
   type Node,
   type Edge,
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Trash2, LayoutGrid, Map, MapPinOff } from 'lucide-react'
+import { LayoutGrid, Map, MapPinOff } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import {
   useRegistryStore,
@@ -25,13 +27,17 @@ import type { CustomNodeData } from '../../lib/mappers'
 import { CustomNode } from '../nodes/CustomNode'
 import { StickyNoteNode } from '../nodes/StickyNoteNode'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { ElementContextMenu, type ElementContextTarget } from './ElementContextMenu'
 
 const nodeTypes = { custom: CustomNode, sticky_note: StickyNoteNode }
+const proOptions = { hideAttribution: true }
+const fitViewOptions: FitViewOptions = { padding: 0.2, duration: 250 }
+const panOnDrag = [1, 2]
 
-interface EdgeContextMenu {
-  edgeId: string
-  x: number
-  y: number
+interface PendingDeletion {
+  nodeIds: number[]
+  edgeIds: number[]
+  label: string
 }
 
 export function Canvas() {
@@ -47,12 +53,24 @@ export function Canvas() {
     deleteEdge,
     selectNode,
     autoLayout,
-  } = useWorkflowEditorStore()
+  } = useWorkflowEditorStore(useShallow((state) => ({
+    rfNodes: state.rfNodes,
+    rfEdges: state.rfEdges,
+    onNodesChange: state.onNodesChange,
+    onEdgesChange: state.onEdgesChange,
+    addEdge: state.addEdge,
+    addNode: state.addNode,
+    deleteNode: state.deleteNode,
+    deleteEdge: state.deleteEdge,
+    selectNode: state.selectNode,
+    autoLayout: state.autoLayout,
+  })))
   const getByKey = useRegistryStore((s) => s.getByKey)
   const savePosition = useAutoSavePosition()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView } = useReactFlow()
-  const [edgeMenu, setEdgeMenu] = useState<EdgeContextMenu | null>(null)
+  const [contextMenu, setContextMenu] = useState<ElementContextTarget | null>(null)
+  const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null)
   const [showMiniMap, setShowMiniMap] = useState(false)
   const [showLayoutConfirm, setShowLayoutConfirm] = useState(false)
 
@@ -108,41 +126,94 @@ export function Canvas() {
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selectedNodeId = workflowEditorStore.getState().selectedNodeId
-        if (selectedNodeId) {
-          deleteNode(parseInt(selectedNodeId))
+        const target = e.target as HTMLElement
+        if (target.matches('input, textarea, select, [contenteditable="true"]')) {
+          return
         }
-        const selectedEdges = rfEdges.filter(
-          (edge) => (edge as { selected?: boolean }).selected,
-        )
-        for (const edge of selectedEdges) {
-          deleteEdge(parseInt(edge.id))
-        }
+
+        const state = workflowEditorStore.getState()
+        const nodeIds = state.rfNodes.filter((node) => node.selected).map((node) => parseInt(node.id))
+        const edgeIds = nodeIds.length === 0
+          ? state.rfEdges.filter((edge) => edge.selected).map((edge) => parseInt(edge.id))
+          : []
+
+        if (nodeIds.length === 0 && edgeIds.length === 0) return
+
+        e.preventDefault()
+        setPendingDeletion({
+          nodeIds,
+          edgeIds,
+          label: nodeIds.length > 0
+            ? `${nodeIds.length} selected node${nodeIds.length === 1 ? '' : 's'}`
+            : `${edgeIds.length} selected connection${edgeIds.length === 1 ? '' : 's'}`,
+        })
       }
     },
-    [deleteNode, deleteEdge, rfEdges, workflowEditorStore],
+    [workflowEditorStore],
+  )
+
+  const menuPosition = useCallback((event: React.MouseEvent, menuHeight: number) => {
+    const bounds = reactFlowWrapper.current?.getBoundingClientRect()
+    const menuWidth = 192
+    const padding = 8
+
+    if (!bounds) return { x: event.clientX, y: event.clientY }
+
+    return {
+      x: Math.max(bounds.left + padding, Math.min(event.clientX, bounds.right - menuWidth - padding)),
+      y: Math.max(bounds.top + padding, Math.min(event.clientY, bounds.bottom - menuHeight - padding)),
+    }
+  }, [])
+
+  const selectCanvasNode = useCallback((nodeId: string) => {
+    const state = workflowEditorStore.getState()
+    workflowEditorStore.setState({
+      rfNodes: state.rfNodes.map((node) => ({
+        ...node,
+        selected: node.id === nodeId,
+      })),
+    })
+    state.selectNode(nodeId)
+  }, [workflowEditorStore])
+
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node<CustomNodeData>) => {
+      event.preventDefault()
+      selectCanvasNode(node.id)
+      setContextMenu({
+        kind: 'node',
+        id: node.id,
+        label: node.data.label,
+        ...menuPosition(event, 88),
+      })
+    },
+    [menuPosition, selectCanvasNode],
   )
 
   const onEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
       event.preventDefault()
-      setEdgeMenu({ edgeId: edge.id, x: event.clientX, y: event.clientY })
+      setContextMenu({
+        kind: 'edge',
+        id: edge.id,
+        label: 'connection',
+        ...menuPosition(event, 48),
+      })
     },
-    [],
+    [menuPosition],
   )
 
-
-  const onPaneClick = useCallback(() => {
-    setEdgeMenu(null)
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
   }, [])
 
   useEffect(() => {
-    const handleClickOutside = () => setEdgeMenu(null)
-    if (edgeMenu) {
+    const handleClickOutside = () => setContextMenu(null)
+    if (contextMenu) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [edgeMenu])
+  }, [contextMenu])
 
   return (
     <div ref={reactFlowWrapper} className="h-full w-full" onKeyDown={onKeyDown} tabIndex={0}>
@@ -156,17 +227,28 @@ export function Canvas() {
         onSelectionChange={onSelectionChange}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
-        onPaneClick={onPaneClick}
+        onPaneClick={closeContextMenu}
+        onMoveStart={closeContextMenu}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={fitViewOptions}
+        selectionOnDrag
+        panOnDrag={panOnDrag}
+        autoPanOnSelection
+        onlyRenderVisibleElements
+        paneClickDistance={4}
+        nodeDragThreshold={3}
+        connectionDragThreshold={4}
         deleteKeyCode={null}
-        proOptions={{ hideAttribution: true }}
+        proOptions={proOptions}
         className="bg-gray-50 dark:bg-gray-900"
       >
         <Controls position="bottom-left" />
         <div className="absolute left-2 top-2 z-10 flex gap-1.5">
           <button
+            type="button"
             onClick={() => setShowLayoutConfirm(true)}
             className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             title="Auto Layout"
@@ -175,6 +257,7 @@ export function Canvas() {
             <span className="hidden md:inline">Auto Layout</span>
           </button>
           <button
+            type="button"
             onClick={() => setShowMiniMap((v) => !v)}
             className={`rounded-md border border-gray-200 bg-white p-1.5 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 ${showMiniMap ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
             title={showMiniMap ? 'Hide mini map' : 'Show mini map'}
@@ -192,22 +275,24 @@ export function Canvas() {
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d1d5db" />
       </ReactFlow>
 
-      {edgeMenu && (
-        <div
-          className="fixed z-50 min-w-[140px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-1 shadow-lg"
-          style={{ top: edgeMenu.y, left: edgeMenu.x }}
-        >
-          <button
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-            onClick={() => {
-              deleteEdge(parseInt(edgeMenu.edgeId))
-              setEdgeMenu(null)
-            }}
-          >
-            <Trash2 size={14} />
-            Delete connection
-          </button>
-        </div>
+      {contextMenu && (
+        <ElementContextMenu
+          key={`${contextMenu.kind}-${contextMenu.id}`}
+          target={contextMenu}
+          onConfigure={(nodeId) => {
+            selectCanvasNode(nodeId)
+            setContextMenu(null)
+          }}
+          onDelete={(target) => {
+            setPendingDeletion({
+              nodeIds: target.kind === 'node' ? [parseInt(target.id)] : [],
+              edgeIds: target.kind === 'edge' ? [parseInt(target.id)] : [],
+              label: target.kind === 'node' ? `node “${target.label}”` : 'this connection',
+            })
+            setContextMenu(null)
+          }}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       <ConfirmDialog
@@ -222,6 +307,25 @@ export function Canvas() {
           window.requestAnimationFrame(() => fitView({ padding: 0.2 }))
         }}
         onCancel={() => setShowLayoutConfirm(false)}
+      />
+      <ConfirmDialog
+        open={pendingDeletion !== null}
+        title="Delete from workflow"
+        message={`Delete ${pendingDeletion?.label ?? 'the selected item'}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          const deletion = pendingDeletion
+          setPendingDeletion(null)
+          if (!deletion) return
+
+          for (const nodeId of deletion.nodeIds) {
+            await deleteNode(nodeId)
+          }
+          for (const edgeId of deletion.edgeIds) {
+            await deleteEdge(edgeId)
+          }
+        }}
+        onCancel={() => setPendingDeletion(null)}
       />
     </div>
   )

@@ -52,6 +52,7 @@ export function KeyValueField({ value, onChange }: Props) {
             placeholder="Value"
           />
           <button
+            type="button"
             onClick={() => removePair(k)}
             className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:text-gray-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
           >
@@ -60,6 +61,7 @@ export function KeyValueField({ value, onChange }: Props) {
         </div>
       ))}
       <button
+        type="button"
         onClick={addPair}
         className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
       >

@@ -29,6 +29,7 @@ function PaletteCategory({ category, capabilities }: { category: string; capabil
   return (
     <div>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
       >
@@ -77,6 +78,7 @@ function PaletteItem({ capability }: { capability: CapabilityDefinition }) {
       {icon}
       <span className="flex-1 text-gray-700 dark:text-gray-300">{capability.name}</span>
       <button
+        type="button"
         onClick={handleClick}
         className="rounded p-0.5 text-gray-300 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
         title="Add to canvas"

@@ -27,3 +27,22 @@ it('renders a host-owned editor mount point', function () {
         ->toContain('/custom-workflow-api')
         ->toContain('height: 60vh');
 });
+
+it('keeps editor buttons from submitting a host Filament form', function () {
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(__DIR__.'/../../ui/src'),
+    );
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'tsx') {
+            continue;
+        }
+
+        $source = file_get_contents($file->getPathname());
+        preg_match_all('/<button\\b[^>]*>/s', $source, $buttons);
+
+        foreach ($buttons[0] as $button) {
+            expect($button)->toContain('type="button"');
+        }
+    }
+});

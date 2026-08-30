@@ -19,8 +19,8 @@ class DelayControl extends BaseNode
     public static function configSchema(): array
     {
         return [
-            ['key' => 'delay_type', 'type' => 'select', 'label' => 'Delay Type', 'options' => ['seconds', 'minutes', 'hours'], 'required' => true],
-            ['key' => 'delay_value', 'type' => 'integer', 'label' => 'Delay Value', 'required' => true],
+            ['key' => 'delay_type', 'type' => 'select', 'label' => 'Delay Type', 'options' => ['seconds', 'minutes', 'hours'], 'required' => true, 'default' => 'seconds'],
+            ['key' => 'delay_value', 'type' => 'integer', 'label' => 'Delay Value', 'required' => true, 'default' => 1],
         ];
     }
 

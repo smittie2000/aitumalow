@@ -163,6 +163,7 @@ export function WorkflowListPage() {
         >
           {folder.children && folder.children.length > 0 ? (
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); toggleFolderExpand(folder.id) }}
               className="shrink-0 p-0.5"
             >
@@ -179,6 +180,7 @@ export function WorkflowListPage() {
             </span>
           )}
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id) }}
             className="hidden shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500 group-hover/folder:block"
           >
@@ -202,6 +204,7 @@ export function WorkflowListPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Folders</h3>
                 <button
+                  type="button"
                   onClick={() => setShowNewFolder(true)}
                   className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   title="New folder"
@@ -220,7 +223,8 @@ export function WorkflowListPage() {
                     className="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     autoFocus
                   />
-                  <button onClick={handleCreateFolder} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
+                  <button
+                    type="button" onClick={handleCreateFolder} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
                     Add
                   </button>
                 </div>
@@ -262,6 +266,7 @@ export function WorkflowListPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tags</h3>
                 <button
+                  type="button"
                   onClick={() => setShowNewTag(true)}
                   className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   title="New tag"
@@ -287,7 +292,8 @@ export function WorkflowListPage() {
                       className="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                       autoFocus
                     />
-                    <button onClick={handleCreateTag} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
+                    <button
+                      type="button" onClick={handleCreateTag} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
                       Add
                     </button>
                   </div>
@@ -296,6 +302,7 @@ export function WorkflowListPage() {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {tags.map((tag) => (
                   <button
+                    type="button"
                     key={tag.id}
                     onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
                     className={`group/tag inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
@@ -344,6 +351,7 @@ export function WorkflowListPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
+              type="button"
               onClick={toggleTheme}
               className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
               title={theme === 'light' ? 'Dark mode' : 'Light mode'}
@@ -351,6 +359,7 @@ export function WorkflowListPage() {
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
             <button
+              type="button"
               onClick={async () => {
                 await fetchRegistry()
                 setShowImport(true)
@@ -361,6 +370,7 @@ export function WorkflowListPage() {
               <span className="hidden sm:inline">Import</span>
             </button>
             <button
+              type="button"
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
@@ -378,7 +388,8 @@ export function WorkflowListPage() {
               <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                 <Folder size={12} />
                 {selectedFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === selectedFolderId)?.name ?? 'Folder'}
-                <button onClick={() => setSelectedFolderId(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600">
+                <button
+                  type="button" onClick={() => setSelectedFolderId(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600">
                   <X size={10} />
                 </button>
               </span>
@@ -395,7 +406,8 @@ export function WorkflowListPage() {
                 >
                   <Tag size={12} />
                   {tag.name}
-                  <button onClick={() => setSelectedTagId(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-black/10">
+                  <button
+                    type="button" onClick={() => setSelectedTagId(null)} className="ml-0.5 rounded-full p-0.5 hover:bg-black/10">
                     <X size={10} />
                   </button>
                 </span>
@@ -515,6 +527,7 @@ export function WorkflowListPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
+                      type="button"
                       onClick={() => toggleActive(wf.id, wf.is_active)}
                       className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                       title={wf.is_active ? 'Deactivate' : 'Activate'}
@@ -522,6 +535,7 @@ export function WorkflowListPage() {
                       {wf.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setDuplicateId(wf.id)}
                       className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                       title="Duplicate"
@@ -529,6 +543,7 @@ export function WorkflowListPage() {
                       <Copy size={14} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setDeleteId(wf.id)}
                       className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                       title="Delete"
@@ -543,6 +558,7 @@ export function WorkflowListPage() {
             {lastPage > 1 && (
               <div className="mt-6 flex items-center justify-center gap-2">
                 <button
+                  type="button"
                   disabled={currentPage <= 1}
                   onClick={() => fetchWorkflows(currentPage - 1)}
                   className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -553,6 +569,7 @@ export function WorkflowListPage() {
                   Page {currentPage} of {lastPage}
                 </span>
                 <button
+                  type="button"
                   disabled={currentPage >= lastPage}
                   onClick={() => fetchWorkflows(currentPage + 1)}
                   className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -597,12 +614,14 @@ export function WorkflowListPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowCreate(false)}
                 className="rounded-md px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleCreate}
                 disabled={!newName.trim()}
                 className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"

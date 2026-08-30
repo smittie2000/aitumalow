@@ -14,14 +14,14 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
 
   const inputPorts = nodeData.inputPorts ?? []
   const outputPorts = nodeData.outputPorts ?? []
+  const apiNodeId = nodeData.apiNode?.id
 
   const [hoveredPort, setHoveredPort] = useState<string | null>(null)
 
-  const nodeTestResults = useRunStore((s) => s.nodeTestResults)
+  const testResult = useRunStore((state) => apiNodeId ? state.nodeTestResults?.[apiNodeId] : undefined)
+  const hasNodeTestResults = useRunStore((state) => state.nodeTestResults !== null)
   const isTestingNode = useRunStore((s) => s.isTestingNode)
   const requestNodeTest = useRunStore((s) => s.requestNodeTest)
-  const apiNodeId = nodeData.apiNode?.id
-  const testResult = apiNodeId && nodeTestResults ? nodeTestResults[apiNodeId] : undefined
   const hasPinnedData = !!(nodeData.apiNode?.pinned_data?.input || nodeData.apiNode?.pinned_data?.output)
 
   const handleRunClick = useCallback((e: React.MouseEvent) => {
@@ -45,7 +45,7 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
       )}
 
       {/* Test Status Badge */}
-      {(testResult || (isTestingNode && nodeTestResults === null)) && (
+      {(testResult || (isTestingNode && !hasNodeTestResults)) && (
         <div className="absolute -right-1.5 -top-1.5 z-10">
           {testResult?.status === 'completed' && (
             <CheckCircle2 size={16} className="rounded-full bg-white text-green-500 dark:bg-gray-800" />
@@ -86,6 +86,7 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
         <div className="flex items-center justify-between mt-0.5">
           <span className="text-[10px] text-gray-400 dark:text-gray-500">{nodeData.nodeKey}</span>
           <button
+            type="button"
             onClick={handleRunClick}
             disabled={isTestingNode}
             className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-green-600 opacity-0 transition-opacity hover:bg-green-50 group-hover:opacity-100 disabled:opacity-50 dark:text-green-400 dark:hover:bg-green-900/30 nopan"

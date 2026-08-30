@@ -93,6 +93,7 @@ export function VariablePanel({ workflowId, nodeId, data: externalData, onInsert
       >
         {data.functions.map((fn) => (
           <button
+            type="button"
             key={fn.name}
             onClick={() => handleInsertFunction(fn)}
             className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -123,6 +124,7 @@ function CollapsibleSection({
   return (
     <div>
       <button
+        type="button"
         onClick={onToggle}
         className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
       >
@@ -143,6 +145,7 @@ function NodeVariableGroup({ node, onInsert }: { node: UpstreamNode; onInsert: (
   return (
     <div>
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
       >
@@ -164,6 +167,7 @@ function NodeVariableGroup({ node, onInsert }: { node: UpstreamNode; onInsert: (
 function VariableItem({ variable, onInsert }: { variable: AvailableVariable; onInsert: (path: string) => void }) {
   return (
     <button
+      type="button"
       onClick={() => onInsert(variable.path)}
       className="group flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] hover:bg-gray-100 dark:hover:bg-gray-700"
       title={`{{ ${variable.path} }}`}

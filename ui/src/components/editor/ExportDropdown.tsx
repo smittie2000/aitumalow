@@ -70,6 +70,7 @@ export function ExportDropdown({ workflow }: ExportDropdownProps) {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
         title="Export"
@@ -81,6 +82,7 @@ export function ExportDropdown({ workflow }: ExportDropdownProps) {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           <button
+            type="button"
             onClick={handleExportJson}
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
           >
@@ -88,6 +90,7 @@ export function ExportDropdown({ workflow }: ExportDropdownProps) {
             Export as JSON
           </button>
           <button
+            type="button"
             onClick={handleExportPng}
             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
           >

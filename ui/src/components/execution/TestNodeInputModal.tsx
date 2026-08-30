@@ -36,6 +36,7 @@ export function TestNodeInputModal({ nodeName, onRun, onClose, isRunning, initia
             Test Node
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-700"
           >
@@ -71,12 +72,14 @@ export function TestNodeInputModal({ nodeName, onRun, onClose, isRunning, initia
 
         <div className="mt-4 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleRun}
             disabled={isRunning}
             className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"

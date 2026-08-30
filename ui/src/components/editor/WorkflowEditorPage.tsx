@@ -18,6 +18,7 @@ import {
   Gauge,
 } from 'lucide-react'
 import { ReactFlowProvider } from '@xyflow/react'
+import { useShallow } from 'zustand/react/shallow'
 
 import {
   useRegistryStore,
@@ -51,10 +52,32 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   const sdk = useEditorSdk()
   const registryStore = useRegistryStoreApi()
   const workflowEditorStore = useWorkflowEditorStoreApi()
-  const { workflow, isLoading, loadWorkflow, updateWorkflowMeta, reset, selectedNodeId } = useWorkflowEditorStore()
-  const { fetchRegistry } = useRegistryStore()
-  const { fetchRuns, pendingTestNodeId, clearPendingTest, testNode: runTestNode, isTestingNode, lastTriggerPayload } = useRunStore()
-  const { theme, toggle: toggleTheme } = useThemeStore()
+  const { workflow, isLoading, loadWorkflow, updateWorkflowMeta, reset, selectedNodeId } = useWorkflowEditorStore(useShallow((state) => ({
+    workflow: state.workflow,
+    isLoading: state.isLoading,
+    loadWorkflow: state.loadWorkflow,
+    updateWorkflowMeta: state.updateWorkflowMeta,
+    reset: state.reset,
+    selectedNodeId: state.selectedNodeId,
+  })))
+  const fetchRegistry = useRegistryStore((state) => state.fetchRegistry)
+  const {
+    fetchRuns,
+    pendingTestNodeId,
+    clearPendingTest,
+    runTestNode,
+    isTestingNode,
+    lastTriggerPayload,
+  } = useRunStore(useShallow((state) => ({
+    fetchRuns: state.fetchRuns,
+    pendingTestNodeId: state.pendingTestNodeId,
+    clearPendingTest: state.clearPendingTest,
+    runTestNode: state.testNode,
+    isTestingNode: state.isTestingNode,
+    lastTriggerPayload: state.lastTriggerPayload,
+  })))
+  const theme = useThemeStore((state) => state.theme)
+  const toggleTheme = useThemeStore((state) => state.toggle)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('palette')
   const [showExecute, setShowExecute] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
@@ -177,6 +200,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <button
+            type="button"
             onClick={() => setMobileLeftOpen((v) => !v)}
             className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 md:hidden"
           >
@@ -184,6 +208,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           </button>
           {onExit && (
             <button
+              type="button"
               onClick={onExit}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             >
@@ -202,6 +227,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           {/* Folder indicator */}
           <div className="relative hidden md:block" ref={folderPickerRef}>
             <button
+              type="button"
               onClick={() => { setShowFolderPicker(!showFolderPicker); setShowTagPicker(false) }}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
               title="Set folder"
@@ -214,6 +240,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             {showFolderPicker && (
               <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800">
                 <button
+                  type="button"
                   onClick={() => handleSetFolder(null)}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     !workflow.folder_id ? 'font-medium text-blue-600' : 'text-gray-700 dark:text-gray-300'
@@ -224,6 +251,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
                 </button>
                 {allFolders.map((f) => (
                   <button
+                    type="button"
                     key={f.id}
                     onClick={() => handleSetFolder(f.id)}
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
@@ -252,12 +280,14 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               >
                 <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color ?? '#6B7280' }} />
                 {tag.name}
-                <button onClick={() => handleToggleTag(tag.id)} className="ml-0.5 rounded-full p-0.5 hover:bg-black/10">
+                <button
+                  type="button" onClick={() => handleToggleTag(tag.id)} className="ml-0.5 rounded-full p-0.5 hover:bg-black/10">
                   <X size={8} />
                 </button>
               </span>
             ))}
             <button
+              type="button"
               onClick={() => { setShowTagPicker(!showTagPicker); setShowFolderPicker(false) }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
               title="Manage tags"
@@ -270,6 +300,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
                   const isActive = (workflow.tags ?? []).some((t) => t.id === tag.id)
                   return (
                     <button
+                      type="button"
                       key={tag.id}
                       onClick={() => handleToggleTag(tag.id)}
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -294,7 +325,8 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
                       placeholder="New tag..."
                       className="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                     />
-                    <button onClick={handleCreateTag} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
+                    <button
+                      type="button" onClick={handleCreateTag} className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700">
                       <Plus size={12} />
                     </button>
                   </div>
@@ -306,6 +338,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           {/* Concurrency limit picker */}
           <div className="relative hidden md:block" ref={concurrencyPickerRef}>
             <button
+              type="button"
               onClick={() => { setShowConcurrencyPicker(!showConcurrencyPicker); setShowTagPicker(false); setShowFolderPicker(false) }}
               className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 ${
                 (workflow.settings as Record<string, unknown> | null)?.max_concurrent_runs
@@ -330,6 +363,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
                   const current = ((workflow.settings as Record<string, unknown> | null)?.max_concurrent_runs as number) ?? 0
                   return (
                     <button
+                      type="button"
                       key={n}
                       onClick={() => handleSetConcurrency(n)}
                       className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${
@@ -347,6 +381,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={toggleTheme}
             className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
             title={theme === 'light' ? 'Dark mode' : 'Light mode'}
@@ -356,6 +391,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           <div className="hidden md:flex items-center gap-2">
             <ExportDropdown workflow={workflow} />
             <button
+              type="button"
               onClick={() => setShowDuplicateConfirm(true)}
               disabled={isDuplicating}
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 disabled:opacity-50"
@@ -365,6 +401,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               {isDuplicating ? 'Duplicating...' : 'Duplicate'}
             </button>
             <button
+              type="button"
               onClick={handleToggleActive}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                 workflow.is_active
@@ -378,6 +415,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             </button>
           </div>
           <button
+            type="button"
             onClick={() => setShowExecute(true)}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
               workflow.is_active
@@ -407,6 +445,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
+              type="button"
               onClick={() => setSidebarTab('palette')}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium ${
                 sidebarTab === 'palette'
@@ -417,6 +456,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               <Layers size={12} /> Nodes
             </button>
             <button
+              type="button"
               onClick={() => setSidebarTab('runs')}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium ${
                 sidebarTab === 'runs'

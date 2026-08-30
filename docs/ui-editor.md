@@ -167,6 +167,25 @@ Click on any workflow to open the visual editor with three panels:
 
 Drag from a **source handle** (right side, blue dot) to a **target handle** (left side, gray dot) to create an edge. Multi-port nodes like IF Condition show labeled handles (`true`, `false`).
 
+### Navigating and selecting
+
+- Drag an empty area with the primary mouse button to select multiple nodes.
+- Pan with the middle or secondary mouse button; touch and trackpad gestures keep
+  their native React Flow behavior.
+- Drag a selection to the canvas edge to auto-pan across a larger workflow.
+- Only visible graph elements are rendered, and normal workflow edges remain
+  static, to keep larger canvases responsive.
+- **Auto Layout** uses each rendered node's measured size, keeps parallel
+  connections distinct, and leaves sticky notes where you placed them.
+
+### Node and connection actions
+
+Right-click a node to open its configuration or delete it. Right-click a
+connection to delete it. Deletion always uses the same confirmation dialog;
+the **Delete** and **Backspace** keys apply it to the current selection as well.
+The editor uses React Flow's native context-menu events and the package's
+existing UI primitives, so no separate shadcn component layer is required.
+
 ### Configuring Nodes
 
 Click a node on the canvas to open its config panel on the right. The form is generated dynamically from the node's `config_schema` and supports all field types:
@@ -193,6 +212,10 @@ Click a node on the canvas to open its config panel on the right. The form is ge
 | `custom` | Web Component rendered via `custom_component` tag name (see [Plugin System](/advanced/plugins)) |
 
 Fields that support expressions show a `{{ }}` indicator — you can use the expression engine syntax like `{{ item.email }}` directly in the field. Fields can also have `description` help text and `placeholder` values. Use `show_when` to conditionally show/hide fields based on other field values.
+
+Configuration and label edits remain local until you click **Save** in the
+config panel. Editor controls are non-submit buttons, so using the embedded
+editor never submits a surrounding Filament or Livewire form.
 
 ### Pinned Test Data
 

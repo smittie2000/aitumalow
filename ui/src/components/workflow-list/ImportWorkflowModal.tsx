@@ -203,6 +203,7 @@ export function ImportWorkflowModal({
         {/* Actions */}
         <div className="mt-5 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
             disabled={isImporting}
             className="rounded-md px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -210,6 +211,7 @@ export function ImportWorkflowModal({
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleImport}
             disabled={!parsedData || hasErrors || !importName.trim() || isImporting}
             className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"

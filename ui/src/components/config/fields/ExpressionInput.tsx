@@ -160,6 +160,7 @@ export function ExpressionInput({ children, value, onChange, variables }: Props)
         <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
           {suggestions.map((item, i) => (
             <button
+              type="button"
               key={`${item.type}-${item.value}`}
               onMouseDown={(e) => {
                 e.preventDefault()

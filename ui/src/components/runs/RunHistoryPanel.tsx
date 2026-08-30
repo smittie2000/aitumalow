@@ -24,6 +24,7 @@ export function RunHistoryPanel() {
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Run History</span>
         <button
+          type="button"
           onClick={() => workflow?.id && fetchRuns(workflow.id)}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
           title="Refresh"
@@ -38,6 +39,7 @@ export function RunHistoryPanel() {
         <div className="space-y-1">
           {runs.map((run) => (
             <button
+              type="button"
               key={run.id}
               onClick={() => handleViewRun(run.id)}
               className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700"

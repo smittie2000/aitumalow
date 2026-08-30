@@ -27,7 +27,7 @@ class LoopControl implements NodeInterface
     public static function configSchema(): array
     {
         return [
-            ['key' => 'source_field', 'type' => 'string', 'label' => 'Array field to iterate (e.g. items, orders)', 'required' => true, 'supports_expression' => true],
+            ['key' => 'source_field', 'type' => 'string', 'label' => 'Array field to iterate (e.g. items, orders)', 'required' => true, 'default' => 'items', 'supports_expression' => true],
         ];
     }
 

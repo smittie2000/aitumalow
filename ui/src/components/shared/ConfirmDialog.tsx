@@ -30,12 +30,14 @@ export function ConfirmDialog({
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onCancel}
             className="rounded-md px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onConfirm}
             className={`rounded-md px-3 py-1.5 text-sm text-white ${
               variant === 'danger'
