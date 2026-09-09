@@ -171,34 +171,39 @@ history, or node configuration.
 
 ### Canvas Editor
 
-Click on any workflow to open the visual editor with three panels:
+Click a workflow to open the canvas. Action and settings panels appear when needed:
 
 | Panel | Position | Description |
 |-------|----------|-------------|
-| **Node Palette** | Left sidebar | All available node types grouped by category |
+| **Action Picker** | Floating left panel | Search available actions and filter by category |
 | **Canvas** | Center | React Flow graph with drag, zoom, and pan |
-| **Config Panel** | Right sidebar | Dynamic form for selected node's configuration |
+| **Settings** | Floating right panel | Dynamic form for the selected step |
 
 ### Adding Nodes
 
 **Drag & Drop:** Drag a node type from the palette onto the canvas.
 
-**Click to Add:** Click the **+** button next to any node type in the palette. The node is placed automatically on the canvas.
+**Click to Add:** Open **Add action**, search by name or description, and click an action. New steps appear below the last step.
+
+Each unconnected output has a **+** button that opens the picker for that branch.
+Choosing an action creates it and connects its first declared input port.
+**Retry connection** reuses the created action if saving the edge fails.
 
 ### Connecting Nodes
 
-Drag from a **source handle** (right side, blue dot) to a **target handle** (left side, gray dot) to create an edge. Multi-port nodes like IF Condition show labeled handles (`true`, `false`).
+Drag from a **source handle** below a step to a **target handle** above another step to create an edge. Multi-port nodes like IF Condition show labeled handles (`true`, `false`).
 
 ### Navigating and selecting
 
-- Drag an empty area with the primary mouse button to select multiple nodes.
-- Pan with the middle or secondary mouse button; touch and trackpad gestures keep
-  their native React Flow behavior.
+- Drag an empty area to pan. Hold **Shift** while dragging to select multiple nodes.
+- Scroll to zoom, or use the zoom and fit controls. Touch and trackpad gestures
+  keep their native React Flow behavior.
 - Drag a selection to the canvas edge to auto-pan across a larger workflow.
 - Only visible graph elements are rendered, and normal workflow edges remain
   static, to keep larger canvases responsive.
-- **Auto Layout** uses each rendered node's measured size, keeps parallel
-  connections distinct, and leaves sticky notes where you placed them.
+- **Auto Layout** arranges steps from top to bottom with branches spread
+  horizontally. It uses measured sizes and leaves sticky notes in place. Saved
+  positions are preserved until you request Auto Layout.
 
 ### Validation feedback
 
@@ -218,7 +223,8 @@ existing UI primitives, so no separate shadcn component layer is required.
 
 ### Configuring Nodes
 
-Click a node on the canvas to open its config panel on the right. The form is generated dynamically from the node's `config_schema` and supports all field types:
+Click a step to open its settings on the right. Opening and closing the action
+picker preserves unsaved settings for the current step. The form is generated dynamically from the node's `config_schema` and supports all field types:
 
 | Field Type | Description |
 |------------|-------------|

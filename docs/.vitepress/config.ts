@@ -50,6 +50,7 @@ export default defineConfig({
           items: [
             { text: 'Why Use This?', link: '/getting-started/why-use-this' },
             { text: 'Installation', link: '/getting-started/installation' },
+            { text: '0.4.0 Release Notes', link: '/releases/0.4.0' },
             { text: 'Quick Start', link: '/getting-started/quick-start' },
             { text: 'Core Concepts', link: '/getting-started/concepts' },
           ],

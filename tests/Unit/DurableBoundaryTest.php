@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
+
 it('keeps Durable Workflow imports inside Aitumalow runtime adapters', function (): void {
     $sourceRoot = dirname(__DIR__, 2).'/src';
     $violations = [];
@@ -44,4 +46,23 @@ it('uses only Durable public contracts in production runtime adapters', function
     }
 
     expect($violations)->toBeEmpty();
+});
+
+it('depends on the stable Durable Workflow 2 release line', function (): void {
+    $contents = file_get_contents(dirname(__DIR__, 2).'/composer.json');
+    if (! is_string($contents)) {
+        throw new RuntimeException('Unable to read composer.json.');
+    }
+
+    $composer = json_decode(
+        $contents,
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $version = InstalledVersions::getVersion('durable-workflow/workflow');
+
+    expect($composer['require']['durable-workflow/workflow'] ?? null)->toBe('^2.0.9')
+        ->and($version)->not->toBeNull()
+        ->and(version_compare((string) $version, '2.0.9', '>='))->toBeTrue()
+        ->and(version_compare((string) $version, '3.0.0', '<'))->toBeTrue();
 });

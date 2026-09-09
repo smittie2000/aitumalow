@@ -42,7 +42,7 @@ export interface WorkflowEditorStore {
     nodeKey: string,
     position: { x: number; y: number },
     registryNode: CapabilityDefinition,
-  ) => Promise<void>
+  ) => Promise<string | undefined>
   updateNodeConfig: (nodeId: number, config: Record<string, unknown>) => Promise<void>
   setNodeLabel: (nodeId: number, label: string) => void
   setNodeConfig: (nodeId: number, config: Record<string, unknown>) => void
@@ -129,6 +129,7 @@ export const createWorkflowEditorStore = (sdk: AitumalowEditorSdk) => createStor
     const newNode = apiNodeToRFNode(res.data, registryNode)
     set({ rfNodes: [...get().rfNodes, newNode] })
     get().clearValidationErrors()
+    return newNode.id
   },
 
   updateNodeConfig: async (nodeId, config) => {

@@ -7,6 +7,35 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-09
+
+### Added
+
+- Searchable action picker with category filters and contextual **+** buttons
+  that create and connect the next step from an unconnected output.
+- Connection retry that reuses an action already created when saving its edge
+  fails, plus an empty-canvas starting point.
+
+### Changed
+
+- Redesigned the editor around a larger canvas, clearer action cards, floating
+  action/settings panels, and separate run-history and version views.
+- Made top-to-bottom the default layout, with inputs above steps, outputs below,
+  and branches spread horizontally. Saved positions remain until Auto Layout
+  is requested.
+- Upgraded the private runtime requirement from `2.0.0-rc.52` to
+  `durable-workflow/workflow:^2.0.9`; validated against stable 2.0.9.
+- Updated runtime upgrade guidance and prepared the
+  [0.4.0 release notes](docs/releases/0.4.0.md).
+
+### Fixed
+
+- Preserved unsaved step settings when opening and closing the action picker.
+- Improved mobile header/panel layout and kept the first-step button clickable.
+- Adopted upstream fixes for durable cleanup replay, early delayed-job delivery,
+  metadata projection, child-completion recovery, and activity-timeout replay,
+  alongside the earlier stable runtime fixes.
+
 ## [0.3.0] - 2026-08-30
 
 ### Added
@@ -67,5 +96,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   validation errors in both the workflow library and editor, while preventing
   duplicate status-toggle requests.
 
-[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/smittie2000/aitumalow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smittie2000/aitumalow/compare/v0.2.0...v0.3.0

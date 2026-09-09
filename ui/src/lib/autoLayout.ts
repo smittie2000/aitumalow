@@ -2,8 +2,8 @@ import { Graph, layout, type EdgeLabel, type GraphLabel, type NodeLabel } from '
 import type { Node, Edge } from '@xyflow/react'
 import type { CustomNodeData } from './mappers'
 
-const DEFAULT_NODE_WIDTH = 200
-const DEFAULT_NODE_HEIGHT = 60
+const DEFAULT_NODE_WIDTH = 240
+const DEFAULT_NODE_HEIGHT = 100
 
 function getNodeDimensions(node: Node<CustomNodeData>): { width: number; height: number } {
   return {
@@ -15,7 +15,7 @@ function getNodeDimensions(node: Node<CustomNodeData>): { width: number; height:
 export function getAutoLayoutPositions(
   nodes: Node<CustomNodeData>[],
   edges: Edge[],
-  direction: 'LR' | 'TB' = 'LR',
+  direction: 'LR' | 'TB' = 'TB',
 ): Node<CustomNodeData>[] {
   const layoutNodes = nodes.filter((node) => node.type !== 'sticky_note')
   const layoutNodeIds = new Set(layoutNodes.map((node) => node.id))
@@ -27,7 +27,7 @@ export function getAutoLayoutPositions(
     rankdir: direction,
     nodesep: 50,
     edgesep: 30,
-    ranksep: 120,
+    ranksep: 170,
     marginx: 20,
     marginy: 20,
     acyclicer: 'greedy',

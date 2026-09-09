@@ -1,8 +1,8 @@
 # Aitumalow Architecture
 
-Date: 2026-08-29
+Date: 2026-09-09
 
-Status: Durable Workflow runtime adopted
+Status: Durable Workflow 2 stable runtime adopted
 
 ## Product boundary
 

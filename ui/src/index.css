@@ -197,3 +197,40 @@
   border-left-color: #374151;
   color: #9ca3af;
 }
+
+/* Canvas workspace: scoped so embedded editors do not restyle the host. */
+.aitumalow-editor .react-flow {
+  --xy-background-color: #f8fafc;
+  --xy-background-pattern-dots-color: #cbd5e1;
+  --xy-edge-stroke: #94a3b8;
+  --xy-edge-stroke-selected: #3b82f6;
+}
+.aitumalow-editor.dark .react-flow {
+  --xy-background-color: #11131b;
+  --xy-background-pattern-dots-color: #343746;
+  --xy-edge-stroke: #737b91;
+}
+.aitumalow-editor .react-flow__controls {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.05);
+}
+.aitumalow-editor .react-flow__controls-button { border-bottom: 0; width: 32px; height: 32px; }
+.aitumalow-editor .editor-view-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+.aitumalow-editor .editor-view-tab:hover { background: #f1f5f9; }
+.aitumalow-editor .editor-view-tab.is-active { background: #f1f5f9; color: #0f172a; font-weight: 600; }
+.aitumalow-editor.dark .editor-view-tab { color: #94a3b8; }
+.aitumalow-editor.dark .editor-view-tab:hover,
+.aitumalow-editor.dark .editor-view-tab.is-active { background: #374151; color: #f1f5f9; }
+.aitumalow-editor .editor-floating-panel { box-shadow: 0 8px 32px rgb(15 23 42 / 0.08); }

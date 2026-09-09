@@ -30,14 +30,24 @@ they do not need to be published first.
 php artisan migrate
 ```
 
-This creates eight tables:
+Durable Workflow owns a separate set of runtime migrations. The same command
+applies both packages' pending migrations. Before enabling workflow traffic in
+an upgraded environment, run its readiness check:
+
+```bash
+php artisan workflow:v2:doctor --strict
+```
+
+The nine Aitumalow migrations create ten package-owned tables:
 
 | Table | Purpose |
 |-------|---------|
 | `workflows` | Workflow definitions |
 | `workflow_nodes` | Nodes within each workflow |
 | `workflow_edges` | Connections between nodes |
+| `workflow_revisions` | Immutable published workflow versions |
 | `workflow_runs` | Execution records |
+| `workflow_commands` | Idempotent commands sent to waiting runs |
 | `workflow_node_runs` | Per-node execution logs |
 | `workflow_tags` | Tags for categorizing workflows |
 | `workflow_tag_pivot` | Many-to-many workflow ↔ tag |

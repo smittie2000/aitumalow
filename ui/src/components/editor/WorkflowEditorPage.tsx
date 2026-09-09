@@ -7,10 +7,8 @@ import {
   Power,
   Clock,
   History,
-  Layers,
   Sun,
   Moon,
-  Menu,
   Tag,
   Folder,
   X,
@@ -33,6 +31,7 @@ import { useEditorSdk } from '../../sdk/EditorSdkContext'
 import { apiErrorDetails, apiErrorMessage } from '../../api/client'
 import type { WorkflowTag, WorkflowFolder } from '../../api/types'
 import { Canvas } from './Canvas'
+import { ActionPickerContext, type ActionSource } from './ActionPickerContext'
 import { ExportDropdown } from './ExportDropdown'
 import { NodePalette } from '../palette/NodePalette'
 import { NodeConfigPanel } from '../config/NodeConfigPanel'
@@ -98,13 +97,17 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   })))
   const theme = useThemeStore((state) => state.theme)
   const toggleTheme = useThemeStore((state) => state.toggle)
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('palette')
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab | null>(null)
   const [showExecute, setShowExecute] = useState(false)
   const [isDuplicating, setIsDuplicating] = useState(false)
   const [isChangingPublication, setIsChangingPublication] = useState(false)
   const [activationError, setActivationError] = useState<string | null>(null)
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
-  const [mobileLeftOpen, setMobileLeftOpen] = useState(false)
+  const [actionSource, setActionSource] = useState<ActionSource | undefined>()
+  const openActionPicker = useCallback((source?: ActionSource) => {
+    setActionSource(source)
+    setSidebarTab('palette')
+  }, [])
   const [mobileRightOpen, setMobileRightOpen] = useState(false)
   const [configTab, setConfigTab] = useState<'config' | 'output' | 'docs'>('config')
   const [allTags, setAllTags] = useState<WorkflowTag[]>([])
@@ -246,25 +249,19 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
     <ReactFlowProvider>
     <div className={`aitumalow-editor flex h-full min-h-0 flex-col ${theme === 'dark' ? 'dark' : ''}`}>
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => setMobileLeftOpen((v) => !v)}
-            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 md:hidden"
-          >
-            <Menu size={18} />
-          </button>
+      <div className="flex min-h-16 shrink-0 flex-wrap gap-3 items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:py-0 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex w-full items-center gap-2 md:gap-3 min-w-0 sm:w-auto sm:flex-1">
           {onExit && (
             <button
               type="button"
               onClick={onExit}
+              aria-label="Back to workflows"
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             >
               <ArrowLeft size={18} />
             </button>
           )}
-          <h1 className="truncate max-w-35 md:max-w-none text-sm font-semibold text-gray-900 dark:text-gray-100">{workflow.name}</h1>
+          <h1 className="truncate max-w-35 md:max-w-56 text-sm font-semibold text-gray-900 dark:text-gray-100">{workflow.name}</h1>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
               workflow.is_active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
@@ -431,7 +428,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             onClick={toggleTheme}
@@ -440,7 +437,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           >
             {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
           </button>
-          <div className="hidden md:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <ExportDropdown workflow={workflow} />
             <button
               type="button"
@@ -450,7 +447,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               title="Duplicate"
             >
               <Copy size={14} />
-              {isDuplicating ? 'Duplicating...' : 'Duplicate'}
+              <span className="hidden xl:inline">{isDuplicating ? 'Duplicating...' : 'Duplicate'}</span>
             </button>
             <button
               type="button"
@@ -464,7 +461,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               title={workflow.is_active ? 'Publish the current draft as a new live version' : 'Publish and activate this workflow'}
             >
               <Upload size={14} />
-              {isChangingPublication ? 'Publishing...' : (workflow.is_active ? 'Publish' : 'Activate')}
+              {isChangingPublication ? 'Publishing...' : 'Publish'}
             </button>
             {workflow.is_active && (
               <button
@@ -533,91 +530,40 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
         </div>
       )}
 
-      {/* Body */}
-      <div className="relative flex flex-1 overflow-hidden">
-        {/* Mobile backdrop for left drawer */}
-        {mobileLeftOpen && (
-          <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMobileLeftOpen(false)} />
-        )}
-
-        {/* Left Sidebar — static on desktop, drawer on mobile */}
-        <div className={`
-          flex flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800
-          fixed top-12 bottom-0 left-0 z-40 w-72 transition-transform duration-200
-          ${mobileLeftOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:relative md:top-auto md:bottom-auto md:z-auto md:w-60 md:shrink-0 md:translate-x-0 md:transition-none
-        `}>
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={() => setSidebarTab('palette')}
-              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium ${
-                sidebarTab === 'palette'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <Layers size={12} /> Nodes
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarTab('runs')}
-              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium ${
-                sidebarTab === 'runs'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <Clock size={12} /> Runs
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarTab('versions')}
-              className={`flex flex-1 items-center justify-center gap-1 px-2 py-2.5 text-xs font-medium ${
-                sidebarTab === 'versions'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <History size={12} /> Versions
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-2">
-            {sidebarTab === 'palette'
-              ? <NodePalette />
-              : sidebarTab === 'runs'
-                ? <RunHistoryPanel />
-                : <RevisionHistoryPanel />}
-          </div>
+      <ActionPickerContext.Provider value={openActionPicker}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
+          <nav className="flex items-center gap-1" aria-label="Workflow views">
+            <button type="button" onClick={() => setSidebarTab(null)} aria-pressed={sidebarTab !== 'runs' && sidebarTab !== 'versions'} className={`editor-view-tab ${sidebarTab !== 'runs' && sidebarTab !== 'versions' ? 'is-active' : ''}`}>Editor</button>
+            <button type="button" onClick={() => setSidebarTab(sidebarTab === 'runs' ? null : 'runs')} aria-pressed={sidebarTab === 'runs'} className={`editor-view-tab ${sidebarTab === 'runs' ? 'is-active' : ''}`}><Clock size={14} /> Run history</button>
+            <button type="button" onClick={() => setSidebarTab(sidebarTab === 'versions' ? null : 'versions')} aria-pressed={sidebarTab === 'versions'} className={`editor-view-tab ${sidebarTab === 'versions' ? 'is-active' : ''}`}><History size={14} /> Versions</button>
+          </nav>
+          <span className="hidden text-xs text-gray-400 lg:block">Draft editor · Publish to apply changes</span>
         </div>
-
-        {/* Canvas */}
-        <div className="min-w-0 flex-1">
-          <Canvas />
+        <div className="relative flex min-h-0 flex-1 overflow-hidden">
+          <div className="min-w-0 flex-1"><Canvas /></div>
+          {sidebarTab && (
+            <aside aria-label={sidebarTab === 'palette' ? 'Choose action' : sidebarTab === 'runs' ? 'Run history' : 'Versions'} className="editor-floating-panel absolute bottom-4 left-4 top-16 z-20 flex w-80 max-w-[calc(100%-2rem)] flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center justify-between px-4 pb-2 pt-4">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{sidebarTab === 'palette' ? 'Choose action' : sidebarTab === 'runs' ? 'Run history' : 'Versions'}</h2>
+                <button type="button" aria-label="Close panel" onClick={() => setSidebarTab(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                {sidebarTab === 'palette'
+                  ? <NodePalette key={actionSource ? `${actionSource.nodeId}:${actionSource.port}` : 'canvas'} source={actionSource} onAdded={() => setSidebarTab(null)} />
+                  : sidebarTab === 'runs' ? <RunHistoryPanel /> : <RevisionHistoryPanel />}
+              </div>
+            </aside>
+          )}
+          {selectedNodeId && (
+            <>
+              {mobileRightOpen && !sidebarTab && <div className="absolute inset-0 z-30 bg-black/30 md:hidden" onClick={() => setMobileRightOpen(false)} />}
+              <aside aria-label="Step settings" className={`editor-floating-panel absolute bottom-4 right-4 top-4 z-40 w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 ${sidebarTab ? 'hidden' : mobileRightOpen ? '' : 'hidden md:block'} ${configTab === 'docs' ? 'md:w-[min(36rem,60%)]' : 'md:w-88'}`}>
+                <NodeConfigPanel key={selectedNodeId} onTabChange={setConfigTab} />
+              </aside>
+            </>
+          )}
         </div>
-
-        {/* Right Panel (Config) — static on desktop, drawer on mobile */}
-        {selectedNodeId && (
-          <>
-            {mobileRightOpen && (
-              <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMobileRightOpen(false)} />
-            )}
-            <div className={`
-              border-l border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800
-              fixed top-12 bottom-0 right-0 z-40 w-[85vw] max-w-sm transition-all duration-200
-              ${mobileRightOpen ? 'translate-x-0' : 'translate-x-full'}
-              md:relative md:top-auto md:bottom-auto md:z-auto md:max-w-none md:shrink-0 md:translate-x-0 md:transition-[width] md:duration-200
-              ${configTab === 'docs' ? 'md:w-xl' : 'md:w-80'}
-            `}>
-              <NodeConfigPanel key={selectedNodeId} onTabChange={setConfigTab} />
-            </div>
-          </>
-        )}
-
-      </div>
+      </ActionPickerContext.Provider>
 
       {/* Execute Modal */}
       {showExecute && (

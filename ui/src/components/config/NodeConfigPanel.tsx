@@ -119,7 +119,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
   if (!selectedApiNode || !selectedRegistryNode) {
     return (
       <div className="flex h-full items-center justify-center p-4 text-center text-sm text-gray-400 dark:text-gray-500">
-        Select a node to configure it
+        Select a step to configure it
       </div>
     )
   }
@@ -145,12 +145,14 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
               }
             }}
             className="w-full truncate border-none bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-0"
-            placeholder="Node Name"
+            placeholder="Step name"
+            aria-label="Step name"
           />
-          <div className="text-[10px] text-gray-400 dark:text-gray-500">{selectedApiNode.node_key}</div>
+          <div className="text-[10px] text-gray-400 dark:text-gray-500">{selectedRegistryNode.name}</div>
         </div>
         <button
           type="button"
+          aria-label="Close step settings"
           onClick={() => selectNode(null)}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
         >
@@ -170,7 +172,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            <Settings size={12} /> Config
+            <Settings size={12} /> Settings
           </button>
           <button
             type="button"
@@ -231,6 +233,7 @@ export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {tab === 'config' ? (
           <div className="space-y-4">
+            {selectedRegistryNode.description && <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">{selectedRegistryNode.description}</p>}
             <DynamicForm
               schema={selectedRegistryNode.config_schema}
               values={localConfig}

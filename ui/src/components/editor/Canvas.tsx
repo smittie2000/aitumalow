@@ -14,7 +14,7 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { LayoutGrid, Map, MapPinOff } from 'lucide-react'
+import { LayoutGrid, Map, MapPinOff, Plus, Workflow } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import {
@@ -22,6 +22,7 @@ import {
   useWorkflowEditorStore,
   useWorkflowEditorStoreApi,
 } from '../../stores/EditorRuntimeProvider'
+import { useActionPicker } from './ActionPickerContext'
 import { useAutoSavePosition } from '../../hooks/useAutoSavePosition'
 import type { CustomNodeData } from '../../lib/mappers'
 import { CustomNode } from '../nodes/CustomNode'
@@ -32,7 +33,7 @@ import { ElementContextMenu, type ElementContextTarget } from './ElementContextM
 const nodeTypes = { custom: CustomNode, sticky_note: StickyNoteNode }
 const proOptions = { hideAttribution: true }
 const fitViewOptions: FitViewOptions = { padding: 0.2, duration: 250 }
-const panOnDrag = [1, 2]
+const panOnDrag = [0, 1, 2]
 
 interface PendingDeletion {
   nodeIds: number[]
@@ -41,6 +42,7 @@ interface PendingDeletion {
 }
 
 export function Canvas() {
+  const openActionPicker = useActionPicker()
   const workflowEditorStore = useWorkflowEditorStoreApi()
   const {
     rfNodes,
@@ -254,6 +256,7 @@ export function Canvas() {
         onSelectionChange={onSelectionChange}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onNodeClick={(_event, node) => selectCanvasNode(node.id)}
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
         onPaneClick={closeContextMenu}
@@ -261,7 +264,8 @@ export function Canvas() {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={fitViewOptions}
-        selectionOnDrag
+        minZoom={0.2}
+        maxZoom={1.75}
         panOnDrag={panOnDrag}
         autoPanOnSelection
         onlyRenderVisibleElements
@@ -272,8 +276,9 @@ export function Canvas() {
         proOptions={proOptions}
         className="bg-gray-50 dark:bg-gray-900"
       >
-        <Controls position="bottom-left" />
-        <div className="absolute left-2 top-2 z-10 flex gap-1.5">
+        <Controls position="bottom-right" showInteractive={false} />
+        <div className="absolute left-4 top-4 z-10 flex gap-2">
+          <button type="button" onClick={() => openActionPicker()} className="flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"><Plus size={16} /> Add action</button>
           <button
             type="button"
             onClick={() => setShowLayoutConfirm(true)}
@@ -299,7 +304,16 @@ export function Canvas() {
             maskColor="rgb(240 240 240 / 0.7)"
           />
         )}
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#d1d5db" />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
+        {rfNodes.length === 0 && <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="max-w-sm px-6 text-center">
+            <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 bg-white text-blue-500 shadow-sm dark:border-gray-700 dark:bg-gray-800"><Workflow size={26} /></span>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Build your workflow</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">Start with an internal entry point, then add actions and branches to define what happens next.</p>
+            <button type="button" onClick={() => openActionPicker()} className="pointer-events-auto mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"><Plus size={16} /> Add first step</button>
+          </div>
+        </div>}
+        {rfNodes.length > 0 && <div className="pointer-events-none absolute bottom-5 left-4 text-[11px] text-gray-400">Drag to pan · Scroll to zoom · Click a step to configure</div>}
       </ReactFlow>
 
       {contextMenu && (
