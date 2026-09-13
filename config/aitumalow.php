@@ -4,6 +4,7 @@ use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowCommand;
 use Aitumalow\Models\WorkflowEdge;
 use Aitumalow\Models\WorkflowFolder;
+use Aitumalow\Models\WorkflowGraphEdit;
 use Aitumalow\Models\WorkflowNode;
 use Aitumalow\Models\WorkflowNodeRun;
 use Aitumalow\Models\WorkflowRevision;
@@ -33,6 +34,7 @@ return [
         'tags' => 'aitumalow_workflow_tags',
         'tag_pivot' => 'aitumalow_workflow_tag_pivot',
         'folders' => 'aitumalow_workflow_folders',
+        'graph_edits' => 'aitumalow_workflow_graph_edits',
     ],
 
     /*
@@ -54,6 +56,7 @@ return [
         'node_run' => WorkflowNodeRun::class,
         'tag' => WorkflowTag::class,
         'folder' => WorkflowFolder::class,
+        'graph_edit' => WorkflowGraphEdit::class,
     ],
 
     /*

@@ -1,6 +1,7 @@
 import { createCatalogApi } from '../api/catalog'
 import { createEdgesApi } from '../api/edges'
 import { createFoldersApi } from '../api/folders'
+import { createGraphApi } from '../api/graph'
 import { createReferencesApi } from '../api/references'
 import { createRevisionsApi } from '../api/revisions'
 import { createNodesApi } from '../api/nodes'
@@ -22,6 +23,7 @@ export interface AitumalowEditorSdk {
   runs: ReturnType<typeof createRunsApi>
   tags: ReturnType<typeof createTagsApi>
   folders: ReturnType<typeof createFoldersApi>
+  graph: ReturnType<typeof createGraphApi>
   references: ReturnType<typeof createReferencesApi>
   revisions: ReturnType<typeof createRevisionsApi>
 }
@@ -43,6 +45,7 @@ export function createEditorSdk(options: CreateEditorSdkOptions = {}): Aitumalow
     runs: createRunsApi(transport),
     tags: createTagsApi(transport),
     folders: createFoldersApi(transport),
+    graph: createGraphApi(transport),
     references: createReferencesApi(transport),
     revisions: createRevisionsApi(transport),
   }

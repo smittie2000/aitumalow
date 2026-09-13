@@ -6,6 +6,7 @@ use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowCommand;
 use Aitumalow\Models\WorkflowEdge;
 use Aitumalow\Models\WorkflowFolder;
+use Aitumalow\Models\WorkflowGraphEdit;
 use Aitumalow\Models\WorkflowNode;
 use Aitumalow\Models\WorkflowNodeRun;
 use Aitumalow\Models\WorkflowRevision;
@@ -16,6 +17,12 @@ use InvalidArgumentException;
 
 final class ConfiguredModels
 {
+    /** @return class-string<WorkflowGraphEdit> */
+    public static function graphEdit(): string
+    {
+        return self::resolve('aitumalow.models.graph_edit', WorkflowGraphEdit::class);
+    }
+
     /** @return class-string<Workflow> */
     public static function workflow(): string
     {

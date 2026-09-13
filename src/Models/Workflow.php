@@ -93,6 +93,12 @@ class Workflow extends Model
         );
     }
 
+    /** @return HasMany<WorkflowGraphEdit, $this> */
+    public function graphEdits(): HasMany
+    {
+        return $this->hasMany(ConfiguredModels::graphEdit());
+    }
+
     /** @return HasMany<WorkflowRun, $this> */
     public function runs(): HasMany
     {

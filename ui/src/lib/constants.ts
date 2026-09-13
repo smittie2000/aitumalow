@@ -1,14 +1,14 @@
 import type { NodeType, RunStatus, NodeRunStatus } from '../api/types'
 
 export const NODE_TYPE_COLORS: Record<NodeType, { bg: string; border: string; text: string }> = {
-  trigger:     { bg: 'bg-green-50',   border: 'border-green-500',  text: 'text-green-700' },
-  action:      { bg: 'bg-blue-50',    border: 'border-blue-500',   text: 'text-blue-700' },
-  condition:   { bg: 'bg-amber-50',   border: 'border-amber-500',  text: 'text-amber-700' },
-  transformer: { bg: 'bg-purple-50',  border: 'border-purple-500', text: 'text-purple-700' },
-  control:     { bg: 'bg-gray-50',    border: 'border-gray-500',   text: 'text-gray-700' },
-  utility:     { bg: 'bg-teal-50',    border: 'border-teal-500',   text: 'text-teal-700' },
-  code:        { bg: 'bg-slate-50',   border: 'border-slate-500',  text: 'text-slate-700' },
-  annotation:  { bg: 'bg-yellow-50',  border: 'border-yellow-400', text: 'text-yellow-700' },
+  trigger:     { bg: 'bg-green-50',   border: 'border-green-500',  text: 'text-green-700 dark:text-green-400' },
+  action:      { bg: 'bg-blue-50',    border: 'border-blue-500',   text: 'text-blue-700 dark:text-blue-400' },
+  condition:   { bg: 'bg-amber-50',   border: 'border-amber-500',  text: 'text-amber-700 dark:text-amber-400' },
+  transformer: { bg: 'bg-purple-50',  border: 'border-purple-500', text: 'text-purple-700 dark:text-purple-400' },
+  control:     { bg: 'bg-gray-50',    border: 'border-gray-500',   text: 'text-gray-700 dark:text-gray-300' },
+  utility:     { bg: 'bg-teal-50',    border: 'border-teal-500',   text: 'text-teal-700 dark:text-teal-400' },
+  code:        { bg: 'bg-slate-50',   border: 'border-slate-500',  text: 'text-slate-700 dark:text-slate-300' },
+  annotation:  { bg: 'bg-yellow-50',  border: 'border-yellow-400', text: 'text-yellow-700 dark:text-yellow-400' },
 }
 
 export const NODE_TYPE_LABELS: Record<NodeType, string> = {

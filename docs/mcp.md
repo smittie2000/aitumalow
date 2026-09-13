@@ -52,6 +52,13 @@ unknown capabilities, invalid configuration, invalid ports, disconnected
 graphs, and stale hashes leave the previous draft untouched. It never publishes
 or moves the active revision pointer.
 
+For incremental editor gestures, `get_workflow_graph` returns persistent row IDs,
+positions, pinned samples and a separate concurrency hash. Use
+`edit_workflow_graph` with that hash and a request UUID for atomic insertion,
+configuration, moves, pins or undo/redo. Exact retries reuse the UUID and body.
+See the [graph editing contract](/advanced/graph-editing) for operation fields and
+conflict handling.
+
 This is deliberately a JSON graph contract, not executable PHP or TypeScript.
 The package does not add a second workflow DSL or an agent-controlled code
 execution surface.
@@ -66,8 +73,10 @@ execution surface.
 | `list_workflows` | List workflow drafts and active workflows | Read-only |
 | `show_workflow` | Show one workflow graph | Read-only |
 | `get_workflow_draft` | Get an editable whole-graph document and concurrency hash | Read-only |
+| `get_workflow_graph` | Get the editor graph with stable row IDs and its concurrency hash | Read-only |
 | `create_workflow` | Create an empty workflow draft | Mutating |
 | `save_workflow_draft` | Atomically validate and replace the complete mutable graph | Mutating |
+| `edit_workflow_graph` | Apply one atomic edit, retry its receipt, or undo/redo an edit | Mutating |
 | `update_workflow` | Update its name or description | Idempotent |
 | `add_workflow_node` | Add a registered node by exact stable key | Mutating |
 | `update_workflow_node` | Replace a stored node's validated configuration | Idempotent |
@@ -80,7 +89,7 @@ execution surface.
 | `run_workflow` | Start a workflow with host-shaped workflow items | Mutating |
 | `show_workflow_run` | Inspect status, commands, and bounded node diagnostics without raw payloads | Read-only |
 
-Folders, tags, credentials, pinned editor data, arbitrary models, and generic
+Folders, tags, credentials, arbitrary models, and generic
 registry operations are intentionally not part of this MCP boundary.
 
 MCP clients should preserve unrelated nodes and edges when saving a complete

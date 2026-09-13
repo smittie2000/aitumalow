@@ -10,9 +10,12 @@ run snapshots, and inspect durable executions from a Filament panel.
 ## Status
 
 Aitumalow is under active development and is not yet declared production ready.
-Runtime correctness is delegated to the stable `durable-workflow/workflow:^2.0.9`
+Runtime correctness is delegated to the stable `durable-workflow/workflow:^2.0.14`
 dependency. The package itself owns the editor, stable host-capability catalog,
 graph validation, scoped references, graph snapshots, and run projections.
+
+See the [0.5.0 release notes](docs/releases/0.5.0.md) for the editor improvements,
+atomic graph API, and host upgrade steps.
 
 ## Principles
 

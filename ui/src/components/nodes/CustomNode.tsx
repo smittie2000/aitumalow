@@ -21,6 +21,9 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
 
 
   const testResult = useRunStore((state) => apiNodeId ? state.nodeTestResults?.[apiNodeId] : undefined)
+  const testGraphHash = useRunStore((state) => state.testGraphHash)
+  const graphHash = useWorkflowEditorStore((state) => state.graphHash)
+  const testStale = testGraphHash !== graphHash
   const hasNodeTestResults = useRunStore((state) => state.nodeTestResults !== null)
   const isTestingNode = useRunStore((s) => s.isTestingNode)
   const requestNodeTest = useRunStore((s) => s.requestNodeTest)
@@ -63,7 +66,7 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
 
       {/* Test Status Badge */}
       {(testResult || (isTestingNode && !hasNodeTestResults)) && (
-        <div className={`absolute -top-1.5 z-10 ${isInvalid ? 'right-4' : '-right-1.5'}`}>
+        <div title={testStale ? 'Earlier draft test — test again for current results' : 'Latest draft test'} className={`absolute -top-1.5 z-10 ${isInvalid ? 'right-4' : '-right-1.5'} ${testStale ? 'opacity-40 grayscale' : ''}`}>
           {testResult?.status === 'completed' && (
             <CheckCircle2 size={16} className="rounded-full bg-white text-green-500 dark:bg-gray-800" />
           )}
@@ -96,10 +99,10 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
         <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-700 ${colors.text}`}>{createElement(icon, { size: 23 })}</span>
         <div className="min-w-0 flex-1">
           <span className="block text-sm font-semibold leading-snug text-gray-800 dark:text-gray-100">{nodeData.label}</span>
-          <span className="mt-1 block text-[11px] capitalize text-gray-400">{nodeData.nodeType === 'trigger' ? 'Internal entry point' : nodeData.nodeType === 'condition' ? 'Branch' : nodeData.registryNode?.category || nodeData.nodeType}</span>
+          <span className="mt-1 block text-[11px] capitalize text-gray-400">{nodeData.nodeType === 'trigger' ? 'Trigger' : nodeData.nodeType === 'condition' ? 'Branch' : nodeData.registryNode?.category || nodeData.nodeType}</span>
         </div>
       </div>
-      <button type="button" onClick={handleRunClick} disabled={isTestingNode} className="nodrag nopan absolute -top-7 right-0 flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-600 opacity-0 transition-opacity hover:text-blue-600 focus:opacity-100 group-hover:opacity-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300" title="Run up to this step">
+      <button type="button" aria-label={`Test ${nodeData.label}`} onClick={handleRunClick} disabled={isTestingNode} className="nodrag nopan absolute -top-7 right-0 flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-600 opacity-0 transition-opacity hover:text-blue-600 focus:opacity-100 group-hover:opacity-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300" title="Run up to this step">
         {isTestingNode ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />} Test step
       </button>
       {outputPorts.map((port, i) => {
@@ -107,9 +110,9 @@ function CustomNodeComponent({ data, selected }: NodeProps) {
         return (
           <div key={port}>
             <Handle type="source" position={Position.Bottom} id={port} style={{ left: `${leftPercent}%` }} className="h-3! w-3! border-2! border-white! bg-gray-400! hover:bg-blue-500!" />
-            <div className="absolute top-full flex -translate-x-1/2 flex-col items-center gap-1 pt-3" style={{ left: `${leftPercent}%` }}>
+            <div className="pointer-events-none absolute top-full flex -translate-x-1/2 flex-col items-center gap-1 pt-3" style={{ left: `${leftPercent}%` }}>
               {outputPorts.length > 1 && <span className="whitespace-nowrap rounded bg-gray-50 px-1 text-[10px] text-gray-500 dark:bg-gray-900 dark:text-gray-300">{port}</span>}
-              {!edges.some((edge) => edge.source === String(apiNodeId) && edge.sourceHandle === port) && <button type="button" onClick={(event) => { event.stopPropagation(); openActionPicker({ nodeId: String(apiNodeId), port }) }} aria-label={`Add action after ${nodeData.label}, ${port}`} className="nodrag nopan flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 shadow-sm hover:border-blue-500 hover:text-blue-600 focus-visible:outline-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"><Plus size={13} /></button>}
+              {!edges.some((edge) => edge.source === String(apiNodeId) && edge.sourceHandle === port) && <button type="button" onClick={(event) => { event.stopPropagation(); openActionPicker({ source: { nodeId: String(apiNodeId), port } }) }} aria-label={`Add action after ${nodeData.label}, ${port}`} className="nodrag nopan pointer-events-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 shadow-sm hover:border-blue-500 hover:text-blue-600 focus-visible:outline-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"><Plus size={13} /></button>}
             </div>
           </div>
         )

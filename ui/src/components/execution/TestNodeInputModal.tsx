@@ -5,7 +5,7 @@ import { useEditorPortalTarget } from '../../stores/EditorRuntimeProvider'
 
 interface Props {
   nodeName: string
-  onRun: (payload: Record<string, unknown>) => void
+  onRun: (payload: Record<string, unknown>[]) => void
   onClose: () => void
   isRunning: boolean
   initialPayload?: string
@@ -25,12 +25,16 @@ export function TestNodeInputModal({ nodeName, onRun, onClose, isRunning, initia
       setError('Invalid JSON payload')
       return
     }
-    onRun(parsed as Record<string, unknown>)
+    if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== 'object' || item === null || Array.isArray(item))) {
+      setError('Enter an array of items, for example [{"id": 1}].')
+      return
+    }
+    onRun(parsed as Record<string, unknown>[])
   }
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
+      <div role="dialog" aria-modal="true" aria-label="Test step" className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Test Node
@@ -52,7 +56,7 @@ export function TestNodeInputModal({ nodeName, onRun, onClose, isRunning, initia
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Trigger Payload (JSON)
             {initialPayload && (
-              <span className="ml-2 text-[10px] font-normal text-orange-500">pinned</span>
+              <span className="ml-2 text-[10px] font-normal text-gray-500">previous input</span>
             )}
           </label>
           <textarea

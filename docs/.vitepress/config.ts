@@ -7,6 +7,8 @@ const advancedSection = {
     { text: 'Authorization', link: '/advanced/authorization' },
     { text: 'Plugins', link: '/advanced/plugins' },
     { text: 'Custom Nodes', link: '/advanced/custom-nodes' },
+    { text: 'Package Design', link: '/advanced/package-design' },
+    { text: 'Graph Editing API', link: '/advanced/graph-editing' },
     { text: 'Execution Engine', link: '/advanced/execution-engine' },
     { text: 'Security', link: '/advanced/security' },
     { text: 'Testing', link: '/advanced/testing' },
@@ -50,7 +52,7 @@ export default defineConfig({
           items: [
             { text: 'Why Use This?', link: '/getting-started/why-use-this' },
             { text: 'Installation', link: '/getting-started/installation' },
-            { text: '0.4.0 Release Notes', link: '/releases/0.4.0' },
+            { text: '0.5.0 Release Notes', link: '/releases/0.5.0' },
             { text: 'Quick Start', link: '/getting-started/quick-start' },
             { text: 'Core Concepts', link: '/getting-started/concepts' },
           ],

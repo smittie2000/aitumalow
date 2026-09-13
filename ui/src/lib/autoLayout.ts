@@ -1,16 +1,7 @@
 import { Graph, layout, type EdgeLabel, type GraphLabel, type NodeLabel } from '@dagrejs/dagre'
 import type { Node, Edge } from '@xyflow/react'
 import type { CustomNodeData } from './mappers'
-
-const DEFAULT_NODE_WIDTH = 240
-const DEFAULT_NODE_HEIGHT = 100
-
-function getNodeDimensions(node: Node<CustomNodeData>): { width: number; height: number } {
-  return {
-    width: node.measured?.width ?? node.width ?? DEFAULT_NODE_WIDTH,
-    height: node.measured?.height ?? node.height ?? DEFAULT_NODE_HEIGHT,
-  }
-}
+import { getNodeDimensions } from './nodePlacement.ts'
 
 export function getAutoLayoutPositions(
   nodes: Node<CustomNodeData>[],

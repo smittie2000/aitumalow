@@ -2,10 +2,12 @@
 
 namespace Aitumalow\Http\Controllers;
 
+use Aitumalow\Exceptions\WorkflowDraftConflictException;
 use Aitumalow\Http\Resources\WorkflowRunResource;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowRun;
 use Aitumalow\Services\WorkflowService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
@@ -62,18 +64,25 @@ class WorkflowRunController extends Controller
         return new WorkflowRunResource($newRun->load('nodeRuns'));
     }
 
-    public function testNode(Request $request, Workflow $workflow): WorkflowRunResource
+    public function testNode(Request $request, Workflow $workflow): WorkflowRunResource|JsonResponse
     {
         $request->validate([
             'node_id' => ['required', 'integer'],
-            'payload' => ['nullable', 'array'],
+            'payload' => ['nullable', 'array', 'list'],
+            'payload.*' => ['array'],
+            'expected_graph_hash' => ['sometimes', 'string', 'size:64'],
         ]);
 
-        $run = $this->service->testNode(
-            $workflow,
-            $request->integer('node_id'),
-            $request->input('payload', []),
-        );
+        try {
+            $run = $this->service->testNode(
+                $workflow,
+                $request->integer('node_id'),
+                $request->input('payload', []),
+                $request->input('expected_graph_hash'),
+            );
+        } catch (WorkflowDraftConflictException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 409);
+        }
 
         return new WorkflowRunResource($run->load('nodeRuns'));
     }

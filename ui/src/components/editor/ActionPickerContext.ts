@@ -1,9 +1,17 @@
 import { createContext, useContext } from 'react'
+import type { XYPosition } from '@xyflow/react'
 
 export interface ActionSource {
   nodeId: string
   port: string
 }
 
-export const ActionPickerContext = createContext<(source?: ActionSource) => void>(() => {})
+export interface ActionPickerRequest {
+  source?: ActionSource
+  position?: XYPosition
+  triggersOnly?: boolean
+  edgeId?: string
+}
+
+export const ActionPickerContext = createContext<(request?: ActionPickerRequest) => void>(() => {})
 export const useActionPicker = () => useContext(ActionPickerContext)

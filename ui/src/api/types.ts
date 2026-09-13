@@ -101,6 +101,8 @@ export interface WorkflowNode {
   name: string | null
   config: Record<string, unknown> | null
   pinned_data: PinnedData | null
+  input_ports?: string[]
+  output_ports?: string[]
   position_x: number | null
   position_y: number | null
   created_at: string
@@ -120,6 +122,7 @@ export interface WorkflowEdge {
 
 export interface WorkflowRun {
   id: number
+  workflow_revision_id: number
   workflow_id: number
   status: RunStatus
   trigger_node_id: number | null
@@ -138,7 +141,7 @@ export interface WorkflowNodeRun {
   workflow_run_id: number
   node_id: number
   status: NodeRunStatus
-  input: Record<string, unknown> | null
+  input: Record<string, unknown>[] | null
   output: Record<string, unknown> | null
   error_message: string | null
   duration_ms: number | null
@@ -264,7 +267,7 @@ export interface CreateNodePayload {
 }
 
 export interface UpdateNodePayload {
-  label?: string
+  name?: string
   config?: Record<string, unknown>
 }
 

@@ -1,459 +1,160 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Save, Play, Loader2, Settings, Database, Pin, PinOff, BookOpen, ChevronDown, ChevronRight, ArrowDownLeft } from 'lucide-react'
+import { X, Save, Play, Loader2, Pin, PinOff, Maximize2, Minimize2, ArrowRight, Database } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useRunStore, useWorkflowEditorStore } from '../../stores/EditorRuntimeProvider'
 import { useEditorSdk } from '../../sdk/EditorSdkContext'
-import type { AvailableVariablesResponse } from '../../api/types'
+import { apiErrorMessage } from '../../api/client'
+import type { AvailableVariablesResponse, WorkflowRun } from '../../api/types'
 import { DynamicForm } from './DynamicForm'
 import { VariablePanel } from './VariablePanel'
-import { JsonViewer } from '../shared/JsonViewer'
+import { DataPreview } from './DataPreview'
 import { NodeRunStatusBadge } from '../shared/StatusBadge'
 import { TestNodeInputModal } from '../execution/TestNodeInputModal'
 import { MarkdownRenderer } from '../shared/MarkdownRenderer'
-import { getUpstreamInputs, type UpstreamInput } from '../../lib/upstreamData'
 
-type Tab = 'config' | 'output' | 'docs'
-
+export type NodeWorkspaceTab = 'input' | 'config' | 'output' | 'docs'
 interface NodeConfigPanelProps {
-  onTabChange?: (tab: Tab) => void
+  expanded: boolean
+  onToggleExpanded: () => void
+  onTabChange?: (tab: NodeWorkspaceTab) => void
 }
 
-export function NodeConfigPanel({ onTabChange }: NodeConfigPanelProps) {
-  const { nodes } = useEditorSdk()
-  const { workflow, selectedApiNode, selectedRegistryNode, selectNode, updateNodeConfig, updateNodeLabel, setNodeLabel, setNodeConfig, pinNode, unpinNode } =
-    useWorkflowEditorStore(useShallow((state) => ({
-      workflow: state.workflow,
-      selectedApiNode: state.selectedApiNode,
-      selectedRegistryNode: state.selectedRegistryNode,
-      selectNode: state.selectNode,
-      updateNodeConfig: state.updateNodeConfig,
-      updateNodeLabel: state.updateNodeLabel,
-      setNodeLabel: state.setNodeLabel,
-      setNodeConfig: state.setNodeConfig,
-      pinNode: state.pinNode,
-      unpinNode: state.unpinNode,
-    })))
-  const { nodeTestResults, isTestingNode, testNode } = useRunStore(useShallow((state) => ({
-    nodeTestResults: state.nodeTestResults,
-    isTestingNode: state.isTestingNode,
-    testNode: state.testNode,
+export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: NodeConfigPanelProps) {
+  const sdk = useEditorSdk()
+  const editor = useWorkflowEditorStore()
+  const { workflow, selectedApiNode: node, selectedRegistryNode: capability, nodeDrafts, selectNode, setNodeDraft, discardNodeDraft, saveNodeDraft, pinNode, unpinNode } = editor
+  const { nodeTestResults, testRun, testGraphHash, testError, isTestingNode, testNode, runs, fetchRuns } = useRunStore(useShallow((state) => ({
+    nodeTestResults: state.nodeTestResults, testRun: state.testRun, testGraphHash: state.testGraphHash, testError: state.testError,
+    isTestingNode: state.isTestingNode, testNode: state.testNode, runs: state.runs, fetchRuns: state.fetchRuns,
   })))
-
-  const [localConfig, setLocalConfig] = useState<Record<string, unknown>>(selectedApiNode?.config ?? {})
-  const [localLabel, setLocalLabel] = useState(selectedApiNode?.name ?? '')
-  const [isDirty, setIsDirty] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [tab, setTabState] = useState<Tab>('config')
-  const setTab = useCallback((t: Tab) => {
-    setTabState(t)
-    onTabChange?.(t)
-  }, [onTabChange])
+  const [tab, setTabState] = useState<NodeWorkspaceTab>('config')
+  const setTab = useCallback((next: NodeWorkspaceTab) => { setTabState(next); onTabChange?.(next) }, [onTabChange])
+  const [source, setSource] = useState(node?.pinned_data ? 'pinned' : 'test')
+  const [historicalRun, setHistoricalRun] = useState<WorkflowRun | null>(null)
+  const [isLoadingRun, setIsLoadingRun] = useState(false)
+  const [selectedPort, setSelectedPort] = useState('main')
+  const [error, setError] = useState<string | null>(null)
   const [showTestModal, setShowTestModal] = useState(false)
   const [variables, setVariables] = useState<AvailableVariablesResponse | null>(null)
 
   useEffect(() => {
-    if (!workflow || !selectedApiNode) return
-    nodes.availableVariables(workflow.id, selectedApiNode.id)
-      .then(setVariables)
-      .catch(() => setVariables(null))
-  }, [workflow?.id, selectedApiNode?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleConfigChange = useCallback((key: string, value: unknown) => {
-    setLocalConfig((prev) => {
-      const updated = { ...prev, [key]: value }
-      if (selectedApiNode?.type === 'annotation') {
-        setNodeConfig(selectedApiNode.id, updated)
-      }
-      return updated
-    })
-    setIsDirty(true)
-  }, [selectedApiNode, setNodeConfig])
-
-  const handleSave = async () => {
-    if (!selectedApiNode) return
-    setIsSaving(true)
-    try {
-      if (localLabel !== (selectedApiNode.name ?? '')) {
-        await updateNodeLabel(selectedApiNode.id, localLabel)
-      }
-      await updateNodeConfig(selectedApiNode.id, localConfig)
-      setIsDirty(false)
-    } finally {
-      setIsSaving(false)
+    let active = true
+    if (workflow && node) {
+      void sdk.nodes.availableVariables(workflow.id, node.id).then((data) => { if (active) setVariables(data) }).catch(() => { if (active) setVariables(null) })
     }
+    return () => { active = false }
+  }, [sdk.nodes, workflow?.id, node?.id, editor.graphHash]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (workflow?.id) void fetchRuns(workflow.id).catch(() => {})
+  }, [workflow?.id, fetchRuns])
+
+  useEffect(() => {
+    if (!source.startsWith('run:')) return
+    let active = true
+    void sdk.runs.show(Number(source.slice(4))).then((response) => { if (active) setHistoricalRun(response.data) })
+      .catch((cause) => { if (active) setError(apiErrorMessage(cause, 'Could not load this run.')) })
+      .finally(() => { if (active) setIsLoadingRun(false) })
+    return () => { active = false }
+  }, [sdk.runs, source])
+
+  if (!node || !capability) return <p className="p-5 text-sm text-gray-500">Select a registered step to configure it.</p>
+  const draft = nodeDrafts[node.id]
+  const local = draft ?? { name: node.name ?? capability.name, config: node.config ?? {} }
+  const blocked = editor.isEditing || !!editor.failedEdit || editor.editConflict
+  const dirty = !!draft
+  const annotation = node.type === 'annotation'
+  const activeTest = testRun?.workflow_id === workflow?.id ? testRun : null
+  const run = source === 'test' ? activeTest : source.startsWith('run:') && historicalRun?.id === Number(source.slice(4)) ? historicalRun : null
+  const result = source === 'test' && activeTest ? nodeTestResults?.[node.id] : run?.node_runs?.find((entry) => entry.node_id === node.id)
+  const stale = source === 'test' && !!activeTest && editor.graphHash !== testGraphHash
+  const input = source === 'pinned' ? node.pinned_data?.input : result?.input
+  const output = source === 'pinned' ? node.pinned_data?.output : result?.output
+  const ports = Object.keys(output ?? {})
+  const port = ports.includes(selectedPort) ? selectedPort : ports[0]
+  const incoming = editor.rfEdges.filter((edge) => edge.target === String(node.id))
+  const sourceLabel = source === 'pinned' ? `Pinned sample${node.pinned_data?.source_run_id ? ` · run #${node.pinned_data.source_run_id}` : ''}`
+    : run ? `${source === 'test' ? 'Draft test' : 'Run'} #${run.id} · revision #${run.workflow_revision_id}` : 'Draft test'
+  const feedback = error || testError
+  const act = async (callback: () => Promise<void>) => {
+    setError(null)
+    try { await callback() } catch (cause) { setError(apiErrorMessage(cause, 'This change could not be saved.')) }
   }
 
-  const handleTestNode = async (payload: Record<string, unknown>) => {
-    if (!workflow || !selectedApiNode) return
-    await testNode(workflow.id, selectedApiNode.id, payload)
-    setShowTestModal(false)
-    setTab('output')
-  }
-
-  const [isPinning, setIsPinning] = useState(false)
-
-  const handlePinOutput = async () => {
-    if (!selectedApiNode || !nodeResult?.output) return
-    setIsPinning(true)
-    try {
-      await pinNode(selectedApiNode.id, {
-        source: 'manual',
-        input: nodeResult.input ? [nodeResult.input] : undefined,
-        output: nodeResult.output as Record<string, unknown[]>,
-      })
-    } finally {
-      setIsPinning(false)
-    }
-  }
-
-  const handleUnpin = async () => {
-    if (!selectedApiNode) return
-    setIsPinning(true)
-    try {
-      await unpinNode(selectedApiNode.id)
-    } finally {
-      setIsPinning(false)
-    }
-  }
-
-  if (!selectedApiNode || !selectedRegistryNode) {
-    return (
-      <div className="flex h-full items-center justify-center p-4 text-center text-sm text-gray-400 dark:text-gray-500">
-        Select a step to configure it
+  return <div className="flex h-full min-w-0 flex-col">
+    <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+      <div className="min-w-0 flex-1">
+        <input aria-label="Step name" value={local.name} disabled={blocked} onChange={(event) => setNodeDraft(node.id, { ...local, name: event.target.value })}
+          className="w-full border-none bg-transparent text-sm font-semibold text-gray-900 outline-none dark:text-gray-100" />
+        <p className="mt-0.5 text-[11px] text-gray-400">{capability.name}{dirty && <span className="ml-2 text-amber-600 dark:text-amber-400">Unsaved settings</span>}</p>
       </div>
-    )
-  }
-
-  const isAnnotation = selectedApiNode.type === 'annotation'
-  const nodeResult = nodeTestResults?.[selectedApiNode.id]
-  const pinnedData = selectedApiNode.pinned_data
-  const docContent = isAnnotation ? null : selectedRegistryNode.documentation
-
-  return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="min-w-0">
-          <input
-            type="text"
-            value={localLabel}
-            onChange={(e) => {
-              setLocalLabel(e.target.value)
-              setIsDirty(true)
-              if (selectedApiNode) {
-                setNodeLabel(selectedApiNode.id, e.target.value)
-              }
-            }}
-            className="w-full truncate border-none bg-transparent text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-0"
-            placeholder="Step name"
-            aria-label="Step name"
-          />
-          <div className="text-[10px] text-gray-400 dark:text-gray-500">{selectedRegistryNode.name}</div>
-        </div>
-        <button
-          type="button"
-          aria-label="Close step settings"
-          onClick={() => selectNode(null)}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* Tabs */}
-      {!isAnnotation && (
-        <div className="flex border-b border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => setTab('config')}
-            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
-              tab === 'config'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            <Settings size={12} /> Settings
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('output')}
-            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
-              tab === 'output'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            <Database size={12} /> Output
-            {nodeResult && (
-              <span
-                className={`ml-1 inline-block h-1.5 w-1.5 rounded-full ${
-                  nodeResult.status === 'completed' ? 'bg-green-500' : nodeResult.status === 'failed' ? 'bg-red-500' : 'bg-gray-400'
-                }`}
-              />
-            )}
-          </button>
-          {docContent && (
-            <button
-              type="button"
-              onClick={() => setTab('docs')}
-              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium ${
-                tab === 'docs'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              <BookOpen size={12} /> Docs
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Pinned Data Banner */}
-      {!isAnnotation && pinnedData && (pinnedData.input || pinnedData.output) && (
-        <div className="flex items-center justify-between border-b border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800 dark:bg-orange-900/20">
-          <div className="flex items-center gap-1.5 text-xs text-orange-700 dark:text-orange-400">
-            <Pin size={12} />
-            <span>
-              Pinned {pinnedData.output ? 'output' : 'input'}
-              {pinnedData.input && pinnedData.output ? ' & input' : ''}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleUnpin}
-            disabled={isPinning}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/40"
-          >
-            <PinOff size={10} /> Unpin
-          </button>
-        </div>
-      )}
-
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {tab === 'config' ? (
-          <div className="space-y-4">
-            {selectedRegistryNode.description && <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">{selectedRegistryNode.description}</p>}
-            <DynamicForm
-              schema={selectedRegistryNode.config_schema}
-              values={localConfig}
-              onChange={handleConfigChange}
-              variables={variables}
-              workflowId={workflow?.id}
-            />
-            {variables && (
-              <div className="border-t border-gray-200 pt-3 dark:border-gray-700">
-                <VariablePanel
-                  data={variables}
-                  onInsert={(expr) => navigator.clipboard.writeText(expr)}
-                />
-              </div>
-            )}
-          </div>
-        ) : tab === 'docs' && docContent ? (
-          <MarkdownRenderer markdown={docContent} />
-        ) : (
-          <NodeOutputView
-            nodeResult={nodeResult}
-            pinnedData={pinnedData}
-            onPin={handlePinOutput}
-            onUnpin={handleUnpin}
-            isPinning={isPinning}
-            selectedNodeId={String(selectedApiNode.id)}
-          />
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="flex gap-2">
-          {isDirty && tab === 'config' && (
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex flex-1 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Save size={14} />
-              {isSaving ? 'Saving...' : 'Save'}
-            </button>
-          )}
-          {!isAnnotation && tab !== 'docs' && (
-            <button
-              type="button"
-              onClick={() => setShowTestModal(true)}
-              disabled={isTestingNode}
-              className={`flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 ${
-                isDirty && tab === 'config' ? '' : 'flex-1'
-              }`}
-            >
-              {isTestingNode ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Play size={14} />
-              )}
-              {isTestingNode ? 'Testing...' : 'Test'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showTestModal && (
-        <TestNodeInputModal
-          nodeName={localLabel || selectedApiNode.node_key}
-          onRun={handleTestNode}
-          onClose={() => setShowTestModal(false)}
-          isRunning={isTestingNode}
-          initialPayload={
-            pinnedData?.input
-              ? JSON.stringify(pinnedData.input, null, 2)
-              : undefined
-          }
-        />
-      )}
+      {!annotation && <button type="button" aria-label={expanded ? 'Collapse step workspace' : 'Expand step workspace'} onClick={onToggleExpanded} title={expanded ? 'Return to canvas sidebar' : 'Inspect input, settings and output together'} className="hidden rounded-lg p-2 text-gray-500 hover:bg-gray-100 md:block dark:hover:bg-gray-700">{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>}
+      <button type="button" aria-label="Close step settings" onClick={() => selectNode(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
     </div>
-  )
+
+    {!annotation && <>
+      <div className={`flex border-b border-gray-200 dark:border-gray-700 ${expanded ? 'lg:hidden' : ''}`} role="tablist" aria-label="Step workspace">
+        {(['input', 'config', 'output', ...(capability.documentation ? ['docs'] : [])] as NodeWorkspaceTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} key={item} onClick={() => setTab(item)} className={`flex-1 border-b-2 px-2 py-2.5 text-xs ${tab === item ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>{item === 'config' ? 'Settings' : item === 'input' ? 'Input' : item === 'output' ? 'Output' : 'Docs'}</button>)}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50/70 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+        <label className="text-[11px] text-gray-500" htmlFor="step-data-source">Data from</label>
+        <select id="step-data-source" aria-label="Data source" value={source} onChange={(event) => { setSource(event.target.value); setHistoricalRun(null); setIsLoadingRun(event.target.value.startsWith('run:')); setError(null) }} className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          <option value="test">Latest draft test{activeTest ? ` #${activeTest.id}` : ''}</option>
+          <option value="pinned">Pinned sample{node.pinned_data ? '' : ' (none)'}</option>
+          {runs.filter((entry) => entry.workflow_id === workflow?.id).map((entry) => <option key={entry.id} value={`run:${entry.id}`}>Run #{entry.id} · {entry.status}</option>)}
+        </select>
+        {expanded && capability.documentation && <button type="button" onClick={() => setTab(tab === 'docs' ? 'config' : 'docs')} className="hidden px-2 text-xs text-blue-600 lg:block dark:text-blue-400">{tab === 'docs' ? 'Back to settings' : 'Step docs'}</button>}
+      </div>
+      {(stale || dirty) && <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">{dirty ? 'Save settings before testing. The data below belongs to the selected sample or run.' : 'The draft has changed since this test. Test again to see current results.'}</p>}
+    </>}
+
+    {feedback && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{feedback}</p>}
+    <div className={`min-h-0 flex-1 ${expanded && !annotation ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,1.2fr)_minmax(0,1fr)]' : ''}`}>
+      {!annotation && <section aria-label="Step input" className={`h-full min-w-0 overflow-y-auto p-4 ${tab === 'input' ? '' : 'hidden'} ${expanded ? 'lg:block lg:border-r lg:border-gray-200 lg:dark:border-gray-700' : ''}`}>
+        <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Input</h3>
+        <p className="mb-4 mt-1 text-[11px] text-gray-400">{sourceLabel}</p>
+        {isLoadingRun ? <Loader2 className="animate-spin text-gray-400" size={18} /> : input != null ? <DataPreview data={input} /> : <EmptyData message={source === 'pinned' ? 'No input is pinned for this step.' : run && !result ? 'This step has no recorded input in this run.' : 'Test this step to inspect its incoming items.'} />}
+        {incoming.length > 0 && <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
+          <h4 className="mb-2 text-[11px] font-medium text-gray-500">Connected in this draft</h4>
+          {incoming.map((edge) => <button type="button" key={edge.id} onClick={() => selectNode(edge.source)} className="mb-1 flex w-full items-center justify-between gap-2 rounded-lg bg-gray-50 p-2.5 text-left text-xs text-gray-600 hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"><span className="truncate">{editor.rfNodes.find((entry) => entry.id === edge.source)?.data.label ?? 'Previous step'}<span className="mt-1 block text-[10px] text-gray-400">{edge.sourceHandle} → {edge.targetHandle}</span></span><ArrowRight size={13} /></button>)}
+        </div>}
+      </section>}
+
+      <section aria-label="Step configuration" className={`h-full min-w-0 overflow-y-auto p-4 ${annotation || tab === 'config' || tab === 'docs' ? '' : 'hidden'} ${expanded ? 'lg:block' : ''}`}>
+        {tab === 'docs' && capability.documentation ? <MarkdownRenderer markdown={capability.documentation} /> : <div className="space-y-4">
+          {expanded && <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Settings</h3>}
+          {capability.description && <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">{capability.description}</p>}
+          <fieldset disabled={blocked} className="min-w-0 space-y-4 disabled:opacity-60"><DynamicForm schema={capability.config_schema} values={local.config} onChange={(key, value) => setNodeDraft(node.id, { ...local, config: { ...local.config, [key]: value } })} variables={variables} workflowId={workflow?.id} /></fieldset>
+          {variables && <div className="border-t border-gray-200 pt-3 dark:border-gray-700"><VariablePanel data={variables} onInsert={(expression) => { void navigator.clipboard.writeText(expression).catch(() => setError('Could not copy the expression.')) }} /></div>}
+        </div>}
+      </section>
+
+      {!annotation && <section aria-label="Step output" className={`h-full min-w-0 overflow-y-auto p-4 ${tab === 'output' ? '' : 'hidden'} ${expanded ? 'lg:block lg:border-l lg:border-gray-200 lg:dark:border-gray-700' : ''}`}>
+        <div className="flex items-center justify-between gap-2"><h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Output</h3>
+          {result?.status === 'completed' && result.output && <button type="button" disabled={blocked || dirty} onClick={() => void act(() => pinNode(node.id, { source: 'run', node_run_id: result.id }))} className="flex items-center gap-1 text-[11px] text-gray-500 disabled:opacity-40"><Pin size={12} /> Pin sample</button>}
+        </div>
+        <p className="mb-4 mt-1 text-[11px] text-gray-400">{sourceLabel}</p>
+        {result && <div className="mb-3 flex items-center gap-2"><NodeRunStatusBadge status={result.status} />{result.duration_ms != null && <span className="text-[11px] text-gray-400">{result.duration_ms} ms</span>}</div>}
+        {result?.error_message && <p className="mb-3 rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">{result.error_message}</p>}
+        {isLoadingRun ? <Loader2 className="animate-spin text-gray-400" size={18} /> : output != null ? <>
+          {ports.length > 0 && <div className="mb-3 flex flex-wrap gap-1" aria-label="Output ports">{ports.map((item) => <button type="button" key={item} aria-pressed={port === item} onClick={() => setSelectedPort(item)} className={`rounded-full px-2.5 py-1 text-[11px] ${port === item ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-900'}`}>{item}</button>)}</div>}
+          <DataPreview data={port ? output[port] : output} />
+        </> : <EmptyData message={source === 'pinned' ? 'No output is pinned for this step.' : run && !result ? 'This step has no recorded output in this run.' : 'Test the step to see its output here.'} />}
+        {node.pinned_data && <button type="button" disabled={blocked} onClick={() => void act(() => unpinNode(node.id))} className="mt-4 flex items-center gap-1.5 text-xs text-orange-600 disabled:opacity-40 dark:text-orange-400"><PinOff size={12} /> Remove pinned sample</button>}
+      </section>}
+    </div>
+
+    <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+      {dirty ? <><button type="button" disabled={blocked} onClick={() => void act(() => saveNodeDraft(node.id))} className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"><Save size={13} />{editor.isEditing ? 'Saving…' : 'Save settings'}</button><button type="button" disabled={blocked} onClick={() => discardNodeDraft(node.id)} className="px-2 text-xs text-gray-500 disabled:opacity-50">Discard</button></> : <span className="text-[11px] text-gray-400">Settings saved in draft</span>}
+      {!annotation && <button type="button" disabled={blocked || isTestingNode || Object.keys(nodeDrafts).length > 0} onClick={() => setShowTestModal(true)} className="ml-auto flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{isTestingNode ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}{isTestingNode ? 'Testing…' : 'Test step'}</button>}
+    </div>
+    {showTestModal && workflow && <TestNodeInputModal nodeName={local.name} isRunning={isTestingNode} onClose={() => setShowTestModal(false)} onRun={(payload) => {
+      setSource('test'); setShowTestModal(false); setTab('output')
+      void act(() => testNode(workflow.id, node.id, payload))
+    }} />}
+  </div>
 }
 
-interface NodeOutputViewProps {
-  nodeResult?: { status: string; input: Record<string, unknown> | null; output: Record<string, unknown> | null; error_message: string | null; duration_ms: number | null } | null
-  pinnedData?: { input?: unknown[]; output?: Record<string, unknown[]>; source_run_id?: number | null } | null
-  onPin: () => void
-  onUnpin: () => void
-  isPinning: boolean
-  selectedNodeId: string
-}
-
-function NodeOutputView({ nodeResult, pinnedData, onPin, onUnpin, isPinning, selectedNodeId }: NodeOutputViewProps) {
-  const hasPinned = !!(pinnedData?.input || pinnedData?.output)
-  const rfEdges = useWorkflowEditorStore((s) => s.rfEdges)
-  const rfNodes = useWorkflowEditorStore((s) => s.rfNodes)
-  const nodeTestResults = useRunStore((s) => s.nodeTestResults)
-
-  const upstreamInputs = getUpstreamInputs(selectedNodeId, rfEdges, rfNodes, nodeTestResults)
-  const hasUpstream = upstreamInputs.length > 0
-
-  if (!nodeResult && !hasPinned && !hasUpstream) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Database size={32} className="mb-3 text-gray-300 dark:text-gray-600" />
-        <p className="text-sm text-gray-400 dark:text-gray-500">No test output yet</p>
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          Click <strong>Test</strong> or hover a node and click <strong>Run</strong> to execute
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Upstream Incoming Data */}
-      {hasUpstream && (
-        <div className="space-y-2">
-          {upstreamInputs.map((up) => (
-            <UpstreamInputSection key={`${up.nodeId}-${up.sourcePort}`} upstream={up} />
-          ))}
-        </div>
-      )}
-
-      {/* Pinned Data Section */}
-      {hasPinned && !nodeResult && (
-        <>
-          {pinnedData?.input && (
-            <div>
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-orange-500">Pinned Input</p>
-              <JsonViewer data={pinnedData.input} maxHeight="200px" />
-            </div>
-          )}
-          {pinnedData?.output && (
-            <div>
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-orange-500">Pinned Output</p>
-              <JsonViewer data={pinnedData.output} maxHeight="300px" />
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Test Result */}
-      {nodeResult && (
-        <>
-          {/* Status + Pin Button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <NodeRunStatusBadge status={nodeResult.status as 'completed' | 'failed' | 'running' | 'pending' | 'skipped'} />
-              {nodeResult.duration_ms != null && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">{nodeResult.duration_ms}ms</span>
-              )}
-            </div>
-            {nodeResult.status === 'completed' && nodeResult.output && (
-              <button
-                type="button"
-                onClick={hasPinned ? onUnpin : onPin}
-                disabled={isPinning}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50 ${
-                  hasPinned
-                    ? 'text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-                }`}
-                title={hasPinned ? 'Unpin test data' : 'Pin this output as test data'}
-              >
-                {hasPinned ? <PinOff size={12} /> : <Pin size={12} />}
-                {hasPinned ? 'Unpin' : 'Pin'}
-              </button>
-            )}
-          </div>
-
-          {/* Error */}
-          {nodeResult.error_message && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-400">
-              {nodeResult.error_message}
-            </div>
-          )}
-
-          {/* Input */}
-          <div>
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Input</p>
-            <JsonViewer data={nodeResult.input} maxHeight="200px" />
-          </div>
-
-          {/* Output */}
-          <div>
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Output</p>
-            <JsonViewer data={nodeResult.output} maxHeight="300px" />
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function UpstreamInputSection({ upstream }: { upstream: UpstreamInput }) {
-  const [expanded, setExpanded] = useState(true)
-
-  return (
-    <div className="rounded-md border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
-      >
-        {expanded ? <ChevronDown size={12} className="text-blue-500" /> : <ChevronRight size={12} className="text-blue-500" />}
-        <ArrowDownLeft size={10} className="text-blue-400" />
-        <span className="text-[11px] font-medium text-blue-700 dark:text-blue-300">
-          {upstream.nodeLabel}
-        </span>
-        <span className="text-[9px] text-blue-400 dark:text-blue-500">
-          ({upstream.sourcePort})
-        </span>
-        {upstream.source === 'pinned' && (
-          <Pin size={9} className="ml-auto text-orange-400" />
-        )}
-      </button>
-      {expanded && (
-        <div className="border-t border-blue-200 px-2.5 py-2 dark:border-blue-800">
-          <JsonViewer data={upstream.data} maxHeight="200px" />
-        </div>
-      )}
-    </div>
-  )
+function EmptyData({ message }: { message: string }) {
+  return <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center dark:border-gray-700"><Database size={22} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" /><p className="text-xs leading-relaxed text-gray-400">{message}</p></div>
 }

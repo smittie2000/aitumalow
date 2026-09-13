@@ -23,7 +23,7 @@
   "require": {
     "php": "^8.4",
     "dragonmantank/cron-expression": "^3.6",
-    "durable-workflow/workflow": "^2.0.9",
+    "durable-workflow/workflow": "^2.0.14",
     "filament/filament": "^5.0",
     "illuminate/contracts": "^13.0",
     "illuminate/database": "^13.0",

@@ -24,7 +24,7 @@ it('ships a create-only migration baseline that remains optionally publishable',
         ->and(array_keys($publishablePaths)[0])->toEndWith('/database/migrations')
         ->and(array_values($publishablePaths)[0])->toEndWith('/database/migrations')
         ->and($migrationNames)
-        ->toHaveCount(9)
+        ->toHaveCount(10)
         ->each->toContain('_create_');
 });
 
@@ -36,6 +36,7 @@ it('creates the complete workflow schema from the squashed baseline', function (
         ->and(Schema::hasTable(config('aitumalow.tables.revisions')))->toBeTrue()
         ->and(Schema::hasTable(config('aitumalow.tables.runs')))->toBeTrue()
         ->and(Schema::hasTable(config('aitumalow.tables.commands')))->toBeTrue()
+        ->and(Schema::hasTable(config('aitumalow.tables.graph_edits')))->toBeTrue()
         ->and(Schema::hasTable(config('aitumalow.tables.node_runs')))->toBeTrue()
         ->and(Schema::hasTable(config('aitumalow.tables.tags')))->toBeTrue()
         ->and(Schema::hasTable(config('aitumalow.tables.tag_pivot')))->toBeTrue()

@@ -3,6 +3,7 @@
 namespace Aitumalow\Http\Resources;
 
 use Aitumalow\Models\WorkflowNode;
+use Aitumalow\Registry\NodeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +21,7 @@ class WorkflowNodeResource extends JsonResource
             'name' => $this->name,
             'config' => $this->config,
             'pinned_data' => $this->pinned_data,
+            ...app(NodeRegistry::class)->ports($this->node_key, $this->config ?? []),
             'position_x' => $this->position_x,
             'position_y' => $this->position_y,
             'created_at' => $this->created_at?->toISOString(),

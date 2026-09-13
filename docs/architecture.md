@@ -131,6 +131,10 @@ workflow-code replay.
 
 ## Research lineage
 
+The [package design guide](./advanced/package-design.md) maps concrete n8n
+authoring patterns to Aitumalow's current contracts and explains the canvas
+improvements and proposed graph-editing follow-up.
+
 - Durable Workflow supplies the adopted Laravel durability runtime.
 - n8n supplies visual composition and inspection inspiration.
 - `aftandilmmd/laravel-workflow-automation` at commit

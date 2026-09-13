@@ -7,6 +7,51 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-13
+
+### Added
+
+- Atomic graph editing through HTTP, PHP and MCP, including insertion into a
+  connection, idempotent request receipts, conflict checks and undo/redo.
+- Expanded input/settings/output workspace with run and revision provenance,
+  pinned sample selection, output-port browsing and table/JSON previews.
+- Additive graph-edit receipt migration; hosts must migrate and deploy the
+  matching editor assets. See `docs/advanced/graph-editing.md`.
+- Trigger-first workflow creation, adding a step by double-clicking empty canvas,
+  and opening the compatible-action picker by dropping an output on empty space.
+- Searchable navigation to existing workflow steps and canvas shortcuts for
+  adding (`N`), finding (`/`), and fitting (`F`).
+- A source-backed package design guide connecting n8n authoring patterns to
+  Aitumalow's Laravel contracts and Durable execution boundary.
+
+### Changed
+
+- Upgraded the private runtime requirement from `^2.0.9` to
+  `durable-workflow/workflow:^2.0.14`; validated against stable 2.0.14.
+- Save step names and settings together, retain unsaved settings while navigating,
+  and persist multi-node moves and Auto Layout as one undoable edit.
+- Allow incomplete draft settings while validating supplied values; publishing
+  and testing still require a valid workflow.
+- Derive configured switch and wait ports in Laravel for the API and validation.
+- Place new steps near the current viewport or chosen output, avoiding existing
+  nodes and sticky notes while preserving saved positions.
+- Support keyboard selection in the action picker and pan/zoom in the minimap;
+  keep minimap and zoom controls in separate corners.
+
+### Fixed
+
+- Adopted Durable fixes for deterministic clock mutation, elapsed activity
+  deadlines after lease repair, schedule timestamp precision, native MariaDB
+  readiness and repeated monitoring projection queries.
+- Prevent stale graph tests and mixing results from different runs. Pin recorded
+  input/output directly from its node run without adding an extra array level.
+- Persist renamed steps using `name`, matching the Laravel contract.
+- Display failed canvas connection and drag-to-add saves with retry guidance.
+- Keep output labels from intercepting connector drags and synchronize the
+  selected card when adding or locating a step.
+- Reserve room for output controls when fitting the graph and improve icon and
+  minimap contrast in dark mode.
+
 ## [0.4.0] - 2026-09-09
 
 ### Added
@@ -96,6 +141,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   validation errors in both the workflow library and editor, while preventing
   duplicate status-toggle requests.
 
-[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/smittie2000/aitumalow/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smittie2000/aitumalow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smittie2000/aitumalow/compare/v0.2.0...v0.3.0

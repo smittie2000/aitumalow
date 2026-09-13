@@ -9,6 +9,7 @@ use Aitumalow\Http\Controllers\FolderController;
 use Aitumalow\Http\Controllers\TagController;
 use Aitumalow\Http\Controllers\WorkflowController;
 use Aitumalow\Http\Controllers\WorkflowEdgeController;
+use Aitumalow\Http\Controllers\WorkflowGraphController;
 use Aitumalow\Http\Controllers\WorkflowNodeController;
 use Aitumalow\Http\Controllers\WorkflowReferenceController;
 use Aitumalow\Http\Controllers\WorkflowRevisionController;
@@ -21,6 +22,8 @@ final class EditorApiRoutes
     {
         Route::scopeBindings()->group(function (): void {
             Route::apiResource('workflows', WorkflowController::class);
+            Route::get('workflows/{workflow}/graph', [WorkflowGraphController::class, 'show']);
+            Route::post('workflows/{workflow}/graph-edits', [WorkflowGraphController::class, 'store']);
             Route::post('workflows/{workflow}/activate', [WorkflowController::class, 'activate']);
             Route::post('workflows/{workflow}/deactivate', [WorkflowController::class, 'deactivate']);
             Route::post('workflows/{workflow}/run', [WorkflowController::class, 'run']);

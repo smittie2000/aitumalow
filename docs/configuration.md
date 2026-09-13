@@ -8,6 +8,7 @@ return [
         'workflows' => 'aitumalow_workflows',
         'nodes' => 'aitumalow_workflow_nodes',
         'edges' => 'aitumalow_workflow_edges',
+        'graph_edits' => 'aitumalow_workflow_graph_edits',
         'runs' => 'aitumalow_workflow_runs',
         'node_runs' => 'aitumalow_workflow_node_runs',
         'tags' => 'aitumalow_workflow_tags',

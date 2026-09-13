@@ -1,5 +1,8 @@
 * text=auto eol=lf
 
+# Compiled template literals preserve the whitespace in editor input defaults.
+/ui/dist/** linguist-generated=true whitespace=-blank-at-eol
+
 /docs export-ignore
 /tests export-ignore
 /.editorconfig export-ignore

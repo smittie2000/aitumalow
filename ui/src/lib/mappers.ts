@@ -32,8 +32,8 @@ export function apiNodeToRFNode(
       label: apiNode.name || registryNode?.name || apiNode.node_key,
       nodeKey: apiNode.node_key,
       nodeType: apiNode.type,
-      inputPorts: isStickyNote ? [] : (registryNode?.input_ports ?? ['main']),
-      outputPorts: isStickyNote ? [] : (registryNode?.output_ports ?? ['main']),
+      inputPorts: isStickyNote ? [] : (apiNode.input_ports ?? registryNode?.input_ports ?? ['main']),
+      outputPorts: isStickyNote ? [] : (apiNode.output_ports ?? registryNode?.output_ports ?? ['main']),
     },
   }
 }

@@ -43,6 +43,8 @@ started.
 
 </div>
 
+The screenshots below show the embedded editor with sample workflow data.
+
 <div class="browser-mock">
   <div class="browser-chrome">
     <div class="browser-dots">
@@ -183,21 +185,59 @@ Click a workflow to open the canvas. Action and settings panels appear when need
 
 **Drag & Drop:** Drag a node type from the palette onto the canvas.
 
-**Click to Add:** Open **Add action**, search by name or description, and click an action. New steps appear below the last step.
+**First step:** **Add trigger** offers the application's registered triggers.
+Once a trigger exists, the picker offers actions, branches, controls, and notes;
+the server still owns graph validation.
+
+**Click to Add:** Open **Add step**, search by name, description, or capability
+key, and choose a step. Unconnected additions use the visible part of the canvas.
+Double-click an empty area to choose a particular location. New steps avoid
+existing nodes and sticky notes without moving the saved layout.
 
 Each unconnected output has a **+** button that opens the picker for that branch.
-Choosing an action creates it and connects its first declared input port.
-**Retry connection** reuses the created action if saving the edge fails.
+Choosing an action creates it and connects it in one atomic edit. If the step
+has multiple inputs, choose the input first. **Retry edit** repeats the exact
+request without duplicating the node or connection.
+The picker supports **↑ / ↓** to choose a result, **Enter** to add it, and
+**Escape** to close.
 
 ### Connecting Nodes
 
 Drag from a **source handle** below a step to a **target handle** above another step to create an edge. Multi-port nodes like IF Condition show labeled handles (`true`, `false`).
+
+Drop an output onto empty canvas to open the action picker at that point. The
+chosen action connects to that output. Dropping on a node or an editor control
+does not create a new step.
+
+Use **+** on an existing connection to insert a step between its endpoints.
+For a condition or another step with several outputs, choose the output that
+continues the existing path. Other branches stay in place.
+
+### Undo and redo
+
+**Undo** and **Redo** cover saved graph changes: creating, inserting, connecting,
+deleting, configuring, moving, arranging and pinning steps. Dragging a selection
+or applying Auto Layout makes one history entry. Use **Ctrl/⌘ Z** to undo and
+**Ctrl/⌘ Shift Z** (or **Ctrl Y**) to redo while the canvas has focus.
+
+Save or discard pending step settings before undoing. History lasts for the
+current editor session. If another client changes the graph, the API rejects a
+stale write; retry an uncertain save or reload the saved draft to continue.
+These actions preserve the live published revision.
 
 ### Navigating and selecting
 
 - Drag an empty area to pan. Hold **Shift** while dragging to select multiple nodes.
 - Scroll to zoom, or use the zoom and fit controls. Touch and trackpad gestures
   keep their native React Flow behavior.
+- **Find step** searches the current graph and centers a selected result, even
+  when it was outside the viewport. This is separate from searching the action
+  catalog. **↑ / ↓**, **Enter**, and **Escape** also work in this panel.
+- With focus on the canvas, **N** opens the step picker, **/** opens step search,
+  and **F** fits the workflow. Shortcuts do not intercept typing in fields or
+  keyboard navigation in the host page.
+- The optional minimap supports panning and zooming. Main zoom controls stay in
+  the opposite corner so both remain accessible.
 - Drag a selection to the canvas edge to auto-pan across a larger workflow.
 - Only visible graph elements are rendered, and normal workflow edges remain
   static, to keep larger canvases responsive.
@@ -249,8 +289,17 @@ picker preserves unsaved settings for the current step. The form is generated dy
 
 Fields that support expressions show a `{{ }}` indicator — you can use the expression engine syntax like `{{ item.email }}` directly in the field. Fields can also have `description` help text and `placeholder` values. Use `show_when` to conditionally show/hide fields based on other field values.
 
-Configuration and label edits remain local until you click **Save** in the
-config panel. Editor controls are non-submit buttons, so using the embedded
+Double-click a step or choose **Expand step workspace** to inspect its input,
+settings and output together. Smaller screens use tabs. **Data from** selects the
+latest draft test, pinned samples or a historical run. Results include their run
+and revision; a later graph edit marks a draft test as stale. Choose an output
+port and switch between an item table and full JSON.
+
+![Input, settings and output workspace](./screenshots/workflow-step-workspace.png)
+
+Configuration and name edits stay with their step while navigating and remain
+local until **Save settings**. Both save together. **Discard** restores the saved
+settings. Publish and test require pending settings to be resolved. Editor controls are non-submit buttons, so using the embedded
 editor never submits a surrounding Filament or Livewire form.
 
 ### Pinned Test Data
@@ -263,11 +312,11 @@ Pin fixed test data to any node for repeatable debugging. This is similar to n8n
 **How to pin:**
 
 1. Open a node's config panel and switch to the **Output** tab
-2. Click **Test** to run the workflow up to that node
-3. Once you see the output, click **Pin** to save it as fixed test data
-4. A pin icon appears on the node in the canvas and an orange banner shows in the config panel
+2. Click **Test step** to run the workflow up to that node
+3. Once you see the output, click **Pin sample** to save it as fixed test data
+4. A pin icon appears on the node; select **Pinned sample** in **Data from** to inspect it
 
-**How to unpin:** Click the **Unpin** button in the orange banner or in the Output tab.
+**How to unpin:** Click **Remove pinned sample** in the output panel.
 
 ::: tip
 Pinned data only affects test runs (the **Test** button). Normal workflow execution ignores pinned data entirely.
@@ -282,7 +331,7 @@ Pinned data only affects test runs (the **Test** button). Normal workflow execut
 
 ### Run History
 
-Switch to the **Runs** tab in the left sidebar to see execution history. Click any run to view:
+Switch to **Run history** in the workflow navigation to see execution history. Click any run to view:
 
 - Per-node execution status (completed, failed, running, skipped)
 - Duration per node

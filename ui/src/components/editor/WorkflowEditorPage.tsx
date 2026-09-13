@@ -31,10 +31,10 @@ import { useEditorSdk } from '../../sdk/EditorSdkContext'
 import { apiErrorDetails, apiErrorMessage } from '../../api/client'
 import type { WorkflowTag, WorkflowFolder } from '../../api/types'
 import { Canvas } from './Canvas'
-import { ActionPickerContext, type ActionSource } from './ActionPickerContext'
+import { ActionPickerContext, type ActionPickerRequest } from './ActionPickerContext'
 import { ExportDropdown } from './ExportDropdown'
 import { NodePalette } from '../palette/NodePalette'
-import { NodeConfigPanel } from '../config/NodeConfigPanel'
+import { NodeConfigPanel, type NodeWorkspaceTab } from '../config/NodeConfigPanel'
 import { RunHistoryPanel } from '../runs/RunHistoryPanel'
 import { RevisionHistoryPanel } from '../revisions/RevisionHistoryPanel'
 import { ExecuteModal } from '../execution/ExecuteModal'
@@ -44,7 +44,7 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { FolderTree } from '../folders/FolderTree'
 import { folderPathLabel } from '../../lib/folders'
 
-type SidebarTab = 'palette' | 'runs' | 'versions'
+type SidebarTab = 'palette' | 'runs' | 'versions' | 'navigator'
 
 export interface WorkflowEditorPageProps {
   workflowId: number
@@ -103,13 +103,19 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   const [isChangingPublication, setIsChangingPublication] = useState(false)
   const [activationError, setActivationError] = useState<string | null>(null)
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
-  const [actionSource, setActionSource] = useState<ActionSource | undefined>()
-  const openActionPicker = useCallback((source?: ActionSource) => {
-    setActionSource(source)
+  const [actionRequest, setActionRequest] = useState<ActionPickerRequest>({})
+  const openActionPicker = useCallback((request: ActionPickerRequest = {}) => {
+    const hasTrigger = workflowEditorStore.getState().rfNodes.some((node) => node.data.nodeType === 'trigger')
+    setActionRequest({ ...request, triggersOnly: !request.source && !request.edgeId && !hasTrigger })
     setSidebarTab('palette')
-  }, [])
+  }, [workflowEditorStore])
   const [mobileRightOpen, setMobileRightOpen] = useState(false)
-  const [configTab, setConfigTab] = useState<'config' | 'output' | 'docs'>('config')
+  const [configTab, setConfigTab] = useState<NodeWorkspaceTab>('config')
+  const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
+  const unsavedIds = useWorkflowEditorStore((state) => Object.keys(state.nodeDrafts).join(','))
+  const graphBlocked = useWorkflowEditorStore((state) => state.isEditing || !!state.failedEdit || state.editConflict)
+  const canvasTestError = useRunStore((state) => state.testError)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [allTags, setAllTags] = useState<WorkflowTag[]>([])
   const [allFolders, setAllFolders] = useState<WorkflowFolder[]>([])
   const [showTagPicker, setShowTagPicker] = useState(false)
@@ -130,9 +136,9 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
     const init = async () => {
       await fetchRegistry()
       await loadTagsAndFolders()
-      loadWorkflow(workflowId, registryStore.getState().getByKey)
+      await loadWorkflow(workflowId, registryStore.getState().getByKey)
     }
-    init()
+    void init().catch((error) => setLoadError(apiErrorMessage(error, 'The editor could not be loaded.')))
     return () => {
       reset()
     }
@@ -155,14 +161,14 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   }, [selectedNodeId])
 
   const handlePublish = async () => {
-    if (!workflow || isChangingPublication) return
+    if (!workflow || isChangingPublication || graphBlocked || unsavedIds) return
 
     setActivationError(null)
     clearValidationErrors()
     setIsChangingPublication(true)
     try {
-      await sdk.workflows.activate(workflow.id)
-      await loadWorkflow(workflow.id, registryStore.getState().getByKey)
+      const response = await sdk.workflows.activate(workflow.id)
+      workflowEditorStore.setState({ workflow: { ...workflowEditorStore.getState().workflow!, ...response.data } })
     } catch (error) {
       const details = apiErrorDetails(error)
       if (details.length > 0) {
@@ -177,13 +183,13 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
   }
 
   const handleDeactivate = async () => {
-    if (!workflow || isChangingPublication) return
+    if (!workflow || isChangingPublication || graphBlocked || unsavedIds) return
 
     setActivationError(null)
     setIsChangingPublication(true)
     try {
-      await sdk.workflows.deactivate(workflow.id)
-      await loadWorkflow(workflow.id, registryStore.getState().getByKey)
+      const response = await sdk.workflows.deactivate(workflow.id)
+      workflowEditorStore.setState({ workflow: { ...workflowEditorStore.getState().workflow!, ...response.data } })
     } catch (error) {
       setActivationError(apiErrorMessage(error, 'The workflow could not be deactivated.'))
     } finally {
@@ -198,13 +204,11 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
       ? currentTagIds.filter((id) => id !== tagId)
       : [...currentTagIds, tagId]
     await updateWorkflowMeta({ tag_ids: newTagIds })
-    loadWorkflow(workflow.id, registryStore.getState().getByKey)
   }
 
   const handleSetFolder = async (folderId: number | null) => {
     if (!workflow) return
     await updateWorkflowMeta({ folder_id: folderId })
-    loadWorkflow(workflow.id, registryStore.getState().getByKey)
     setShowFolderPicker(false)
   }
 
@@ -222,7 +226,6 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
     await updateWorkflowMeta({
       settings: { ...currentSettings, max_concurrent_runs: value },
     })
-    loadWorkflow(workflow.id, registryStore.getState().getByKey)
     setShowConcurrencyPicker(false)
   }
 
@@ -236,6 +239,8 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
       setIsDuplicating(false)
     }
   }
+
+  if (loadError) return <div role="alert" className="p-6 text-sm text-red-600">{loadError}</div>
 
   if (isLoading || !workflow) {
     return (
@@ -452,7 +457,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             <button
               type="button"
               onClick={handlePublish}
-              disabled={isChangingPublication}
+              disabled={isChangingPublication || graphBlocked || !!unsavedIds}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${
                 workflow.is_active
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -467,7 +472,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
               <button
                 type="button"
                 onClick={handleDeactivate}
-                disabled={isChangingPublication}
+                disabled={isChangingPublication || graphBlocked || !!unsavedIds}
                 className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-red-600 disabled:cursor-wait disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
                 title="Deactivate this workflow"
               >
@@ -537,19 +542,20 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
             <button type="button" onClick={() => setSidebarTab(sidebarTab === 'runs' ? null : 'runs')} aria-pressed={sidebarTab === 'runs'} className={`editor-view-tab ${sidebarTab === 'runs' ? 'is-active' : ''}`}><Clock size={14} /> Run history</button>
             <button type="button" onClick={() => setSidebarTab(sidebarTab === 'versions' ? null : 'versions')} aria-pressed={sidebarTab === 'versions'} className={`editor-view-tab ${sidebarTab === 'versions' ? 'is-active' : ''}`}><History size={14} /> Versions</button>
           </nav>
-          <span className="hidden text-xs text-gray-400 lg:block">Draft editor · Publish to apply changes</span>
+          {unsavedIds ? <button type="button" onClick={() => { workflowEditorStore.getState().selectNode(unsavedIds.split(',')[0]); setSidebarTab(null) }} className="text-xs text-amber-600 dark:text-amber-400">{unsavedIds.split(',').length} step{unsavedIds.includes(',') ? 's' : ''} with unsaved settings</button> : <span className="hidden text-xs text-gray-400 lg:block">Draft editor · Publish to apply changes</span>}
         </div>
+        {canvasTestError && !selectedNodeId && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">{canvasTestError}</p>}
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <div className="min-w-0 flex-1"><Canvas /></div>
-          {sidebarTab && (
-            <aside aria-label={sidebarTab === 'palette' ? 'Choose action' : sidebarTab === 'runs' ? 'Run history' : 'Versions'} className="editor-floating-panel absolute bottom-4 left-4 top-16 z-20 flex w-80 max-w-[calc(100%-2rem)] flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+          <div className="min-w-0 flex-1"><Canvas onOpenStep={(id) => { workflowEditorStore.getState().selectNode(id); setSidebarTab(null); setWorkspaceExpanded(true) }} showNavigator={sidebarTab === 'navigator'} onShowNavigator={() => setSidebarTab('navigator')} onCloseNavigator={() => setSidebarTab(null)} /></div>
+          {sidebarTab && sidebarTab !== 'navigator' && (
+            <aside aria-label={sidebarTab === 'palette' ? 'Choose step' : sidebarTab === 'runs' ? 'Run history' : 'Versions'} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setSidebarTab(null) } }} className="editor-floating-panel absolute bottom-16 left-4 top-16 z-20 flex w-80 max-w-[calc(100%-2rem)] flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
               <div className="flex items-center justify-between px-4 pb-2 pt-4">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{sidebarTab === 'palette' ? 'Choose action' : sidebarTab === 'runs' ? 'Run history' : 'Versions'}</h2>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{sidebarTab === 'palette' ? actionRequest.triggersOnly ? 'How does this workflow start?' : actionRequest.edgeId ? 'Insert a step' : actionRequest.source ? 'What happens next?' : 'Add a step' : sidebarTab === 'runs' ? 'Run history' : 'Versions'}</h2>
                 <button type="button" aria-label="Close panel" onClick={() => setSidebarTab(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
                 {sidebarTab === 'palette'
-                  ? <NodePalette key={actionSource ? `${actionSource.nodeId}:${actionSource.port}` : 'canvas'} source={actionSource} onAdded={() => setSidebarTab(null)} />
+                  ? <NodePalette key={JSON.stringify(actionRequest)} request={actionRequest} onAdded={() => setSidebarTab(null)} />
                   : sidebarTab === 'runs' ? <RunHistoryPanel /> : <RevisionHistoryPanel />}
               </div>
             </aside>
@@ -557,8 +563,8 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           {selectedNodeId && (
             <>
               {mobileRightOpen && !sidebarTab && <div className="absolute inset-0 z-30 bg-black/30 md:hidden" onClick={() => setMobileRightOpen(false)} />}
-              <aside aria-label="Step settings" className={`editor-floating-panel absolute bottom-4 right-4 top-4 z-40 w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 ${sidebarTab ? 'hidden' : mobileRightOpen ? '' : 'hidden md:block'} ${configTab === 'docs' ? 'md:w-[min(36rem,60%)]' : 'md:w-88'}`}>
-                <NodeConfigPanel key={selectedNodeId} onTabChange={setConfigTab} />
+              <aside aria-label="Step settings" className={`editor-floating-panel absolute bottom-4 right-4 top-4 z-40 w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 ${sidebarTab ? 'hidden' : mobileRightOpen ? '' : 'hidden md:block'} ${workspaceExpanded ? 'md:left-4 md:w-auto' : configTab === 'docs' ? 'md:w-[min(36rem,60%)]' : 'md:w-88'}`}>
+                <NodeConfigPanel key={selectedNodeId} onTabChange={setConfigTab} expanded={workspaceExpanded} onToggleExpanded={() => setWorkspaceExpanded((value) => !value)} />
               </aside>
             </>
           )}
@@ -588,7 +594,7 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
           <TestNodeInputModal
             nodeName={pendingNodeName}
             onRun={(payload) => {
-              runTestNode(workflow.id, pendingTestNodeId, payload as Record<string, unknown>)
+              void runTestNode(workflow.id, pendingTestNodeId, payload).catch(() => {})
               clearPendingTest()
             }}
             onClose={clearPendingTest}

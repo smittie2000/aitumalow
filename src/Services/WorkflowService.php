@@ -14,6 +14,7 @@ use Aitumalow\Enums\CreatedVia;
 use Aitumalow\Enums\NodeType;
 use Aitumalow\Enums\RunStatus;
 use Aitumalow\Exceptions\WorkflowCommandDidNotComplete;
+use Aitumalow\Exceptions\WorkflowDraftConflictException;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowCommand;
 use Aitumalow\Models\WorkflowEdge;
@@ -25,6 +26,7 @@ use Aitumalow\Registry\WorkflowSubjectRegistry;
 use Aitumalow\Runtime\DurableWorkflowRuntime;
 use Aitumalow\Runtime\ScheduleSynchronizer;
 use Aitumalow\Runtime\WorkflowSnapshot;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -509,19 +511,26 @@ class WorkflowService
      *
      * @param  WorkflowItems  $payload
      */
-    public function testNode(int|Workflow $workflow, int $nodeId, array $payload = []): WorkflowRun
+    public function testNode(int|Workflow $workflow, int $nodeId, array $payload = [], ?string $expectedGraphHash = null): WorkflowRun
     {
-        $workflow = $this->resolveWorkflow($workflow);
+        return $this->withGraphLock($this->resolveWorkflow($workflow), function (Workflow $workflow) use ($nodeId, $payload, $expectedGraphHash): WorkflowRun {
+            $workflow->nodes()->findOrFail($nodeId);
+            if ($expectedGraphHash !== null) {
+                $snapshots = app(WorkflowGraphSnapshot::class);
+                if (! hash_equals($expectedGraphHash, $snapshots->hash($snapshots->capture($workflow)))) {
+                    throw new WorkflowDraftConflictException;
+                }
+            }
+            $this->validator->validate($workflow);
 
-        $this->validator->validate($workflow);
-
-        return $this->runtime->start(
-            workflow: $workflow,
-            revision: $this->publish($workflow),
-            payload: $payload,
-            scope: $this->scopeResolver->resolve($workflow),
-            stopAfterNodeId: $nodeId,
-        );
+            return $this->runtime->start(
+                workflow: $workflow,
+                revision: $this->publish($workflow),
+                payload: $payload,
+                scope: $this->scopeResolver->resolve($workflow),
+                stopAfterNodeId: $nodeId,
+            );
+        });
     }
 
     // ── CRUD ───────────────────────────────────────────────────────
@@ -753,38 +762,41 @@ class WorkflowService
         string $nodeKey,
         array $config = [],
         ?string $name = null,
+        int $positionX = 0,
+        int $positionY = 0,
     ): WorkflowNode {
-        $workflow = $this->resolveWorkflow($workflow);
-        $config = $this->configValidator->validate(
-            $nodeKey,
-            $config,
-            $this->scopeResolver->resolve($workflow),
-        );
+        return $this->withGraphLock($this->resolveWorkflow($workflow), function (Workflow $workflow) use ($nodeKey, $config, $name, $positionX, $positionY): WorkflowNode {
+            $config = $this->configValidator->validate($nodeKey, $config, $this->scopeResolver->resolve($workflow));
 
-        return $workflow->nodes()->create([
-            'type' => app(NodeRegistry::class)->getMeta($nodeKey)['type'] ?? NodeType::Action,
-            'node_key' => $nodeKey,
-            'name' => $name,
-            'config' => $config,
-        ]);
+            return $workflow->nodes()->create([
+                'type' => app(NodeRegistry::class)->getMeta($nodeKey)['type'] ?? NodeType::Action,
+                'node_key' => $nodeKey,
+                'name' => $name,
+                'config' => $config,
+                'position_x' => $positionX,
+                'position_y' => $positionY,
+            ]);
+        });
     }
 
     /** @param array<string, mixed> $data */
     public function updateNode(int|WorkflowNode $node, array $data): WorkflowNode
     {
-        $node = $node instanceof WorkflowNode ? $node : WorkflowNode::findOrFail($node);
+        $node = $node instanceof WorkflowNode ? $node : ConfiguredModels::node()::findOrFail($node);
 
-        if (array_key_exists('config', $data)) {
-            $data['config'] = $this->configValidator->validate(
-                $node->node_key,
-                is_array($data['config']) ? $data['config'] : [],
-                $this->scopeResolver->resolve($node->workflow),
-            );
-        }
+        return $this->withGraphLock($node->workflow, function (Workflow $workflow) use ($node, $data): WorkflowNode {
+            $node = $workflow->nodes()->findOrFail($node->id);
+            if (array_key_exists('config', $data)) {
+                $data['config'] = $this->configValidator->validate(
+                    $node->node_key,
+                    is_array($data['config']) ? $data['config'] : [],
+                    $this->scopeResolver->resolve($workflow),
+                );
+            }
+            $node->update($data);
 
-        $node->update($data);
-
-        return $node->fresh();
+            return $node->fresh();
+        });
     }
 
     public function connect(
@@ -793,31 +805,47 @@ class WorkflowService
         string $sourcePort = 'main',
         string $targetPort = 'main',
     ): WorkflowEdge {
-        $sourceNodeId = $source instanceof WorkflowNode ? $source->id : $source;
-        $targetNodeId = $target instanceof WorkflowNode ? $target->id : $target;
-        $sourceNode = $source instanceof WorkflowNode ? $source : WorkflowNode::findOrFail($sourceNodeId);
+        $source = $source instanceof WorkflowNode ? $source : ConfiguredModels::node()::findOrFail($source);
+        $targetId = $target instanceof WorkflowNode ? $target->id : $target;
 
-        return WorkflowEdge::create([
-            'workflow_id' => $sourceNode->workflow_id,
-            'source_node_id' => $sourceNodeId,
-            'source_port' => $sourcePort,
-            'target_node_id' => $targetNodeId,
-            'target_port' => $targetPort,
-        ]);
+        return $this->withGraphLock($source->workflow, function (Workflow $workflow) use ($source, $targetId, $sourcePort, $targetPort): WorkflowEdge {
+            $workflow->nodes()->findOrFail([$source->id, $targetId]);
+
+            return $workflow->edges()->create([
+                'source_node_id' => $source->id,
+                'source_port' => $sourcePort,
+                'target_node_id' => $targetId,
+                'target_port' => $targetPort,
+            ]);
+        });
     }
 
     public function removeNode(int $nodeId): void
     {
-        WorkflowEdge::where('source_node_id', $nodeId)
-            ->orWhere('target_node_id', $nodeId)
-            ->delete();
-
-        WorkflowNode::findOrFail($nodeId)->delete();
+        $node = ConfiguredModels::node()::findOrFail($nodeId);
+        $this->withGraphLock($node->workflow, function (Workflow $workflow) use ($nodeId): void {
+            $workflow->edges()->where(fn ($query) => $query->where('source_node_id', $nodeId)->orWhere('target_node_id', $nodeId))->delete();
+            $workflow->nodes()->findOrFail($nodeId)->delete();
+        });
     }
 
     public function removeEdge(int $edgeId): void
     {
-        WorkflowEdge::findOrFail($edgeId)->delete();
+        $edge = ConfiguredModels::edge()::findOrFail($edgeId);
+        $this->withGraphLock($edge->workflow, fn (Workflow $workflow) => $workflow->edges()->findOrFail($edgeId)->delete());
+    }
+
+    /**
+     * All package graph writers take the workflow lock, including legacy endpoints.
+     *
+     * @template TResult
+     *
+     * @param  callable(Workflow): TResult  $callback
+     * @return TResult
+     */
+    private function withGraphLock(Workflow $workflow, callable $callback): mixed
+    {
+        return $workflow->getConnection()->transaction(fn () => $callback($workflow->newQuery()->lockForUpdate()->findOrFail($workflow->id)));
     }
 
     // ── Helpers ────────────────────────────────────────────────────

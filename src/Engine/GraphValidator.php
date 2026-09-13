@@ -170,35 +170,16 @@ class GraphValidator
             }
 
             if ($this->registry->has($source->node_key)) {
-                $sourceInstance = $this->registry->resolve($source->node_key);
-                $outputPorts = $sourceInstance->outputPorts();
-
-                if ($source->node_key === 'core.wait_resume') {
-                    $configuredCommands = [];
-                    $commands = $source->config['commands'] ?? null;
-                    if (is_array($commands)) {
-                        foreach ($commands as $command) {
-                            if (is_array($command) && is_string($command['key'] ?? null)) {
-                                $configuredCommands[] = $command['key'];
-                            }
-                        }
-                    }
-                    $outputPorts = $configuredCommands === []
-                        ? ['resume', 'timeout']
-                        : [...$configuredCommands, 'timeout'];
-                }
-
-                // Allow dynamic ports for switch nodes (case_*)
-                if (! in_array($edge->source_port, $outputPorts) && ! str_starts_with($edge->source_port, 'case_')) {
+                $outputPorts = $this->registry->ports($source->node_key, $source->config ?? [])['output_ports'];
+                if (! in_array($edge->source_port, $outputPorts, true)) {
                     $errors[] = "Edge {$edge->id}: source node '{$source->name}' does not have output port '{$edge->source_port}'. Available: ".implode(', ', $outputPorts);
                 }
             }
 
             if ($this->registry->has($target->node_key)) {
-                $targetInstance = $this->registry->resolve($target->node_key);
-                $inputPorts = $targetInstance->inputPorts();
+                $inputPorts = $this->registry->ports($target->node_key, $target->config ?? [])['input_ports'];
 
-                if (! empty($inputPorts) && ! in_array($edge->target_port, $inputPorts)) {
+                if (! in_array($edge->target_port, $inputPorts, true)) {
                     $errors[] = "Edge {$edge->id}: target node '{$target->name}' does not have input port '{$edge->target_port}'. Available: ".implode(', ', $inputPorts);
                 }
             }

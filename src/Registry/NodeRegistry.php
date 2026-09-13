@@ -101,6 +101,37 @@ class NodeRegistry
         return isset($this->nodes[$key]);
     }
 
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array{input_ports: list<string>, output_ports: list<string>}
+     */
+    public function ports(string $key, array $config = []): array
+    {
+        if (! $this->has($key)) {
+            return ['input_ports' => [], 'output_ports' => []];
+        }
+
+        $node = $this->resolve($key);
+        $outputs = $node->outputPorts();
+        $rows = $key === 'core.switch' ? ($config['cases'] ?? []) : ($config['commands'] ?? []);
+        $dynamic = [];
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $port = is_array($row) ? ($row[$key === 'core.switch' ? 'port' : 'key'] ?? null) : null;
+                if (is_string($port) && $port !== '') {
+                    $dynamic[] = $port;
+                }
+            }
+        }
+        if ($key === 'core.switch') {
+            $outputs = [...$outputs, ...$dynamic];
+        } elseif ($key === 'core.wait_resume' && $dynamic !== []) {
+            $outputs = [...$dynamic, 'timeout'];
+        }
+
+        return ['input_ports' => array_values($node->inputPorts()), 'output_ports' => array_values(array_unique($outputs))];
+    }
+
     /** @return array{class: class-string, name: string, category: string, icon: string, description: string, type: NodeType}|null */
     public function getMeta(string $key): ?array
     {

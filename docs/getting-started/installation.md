@@ -38,13 +38,14 @@ an upgraded environment, run its readiness check:
 php artisan workflow:v2:doctor --strict
 ```
 
-The nine Aitumalow migrations create ten package-owned tables:
+The ten Aitumalow migrations create eleven package-owned tables:
 
 | Table | Purpose |
 |-------|---------|
 | `workflows` | Workflow definitions |
 | `workflow_nodes` | Nodes within each workflow |
 | `workflow_edges` | Connections between nodes |
+| `workflow_graph_edits` | Atomic draft edit receipts for retries and undo/redo |
 | `workflow_revisions` | Immutable published workflow versions |
 | `workflow_runs` | Execution records |
 | `workflow_commands` | Idempotent commands sent to waiting runs |

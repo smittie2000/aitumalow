@@ -22,7 +22,7 @@ final readonly class WorkflowNodeConfigValidator
      * @param  array<string, mixed>  $config
      * @return array<string, mixed>
      */
-    public function validate(string $nodeKey, array $config, ?ExecutionScope $scope = null): array
+    public function validate(string $nodeKey, array $config, ?ExecutionScope $scope = null, bool $allowIncomplete = false): array
     {
         $definition = $this->registry->definition($nodeKey);
 
@@ -70,7 +70,7 @@ final readonly class WorkflowNodeConfigValidator
             }
 
             $value = $config[$key] ?? null;
-            $rules["config.{$key}"] = $this->rulesFor($field, $value);
+            $rules["config.{$key}"] = $this->rulesFor($allowIncomplete ? [...$field, 'required' => false] : $field, $value);
         }
 
         $validated = $this->validator->make(['config' => $config], $rules)->validate();

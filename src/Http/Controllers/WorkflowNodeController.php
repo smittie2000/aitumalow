@@ -28,14 +28,9 @@ class WorkflowNodeController extends Controller
             nodeKey: $request->validated('node_key'),
             config: $request->validated('config', []),
             name: $request->validated('name'),
+            positionX: $request->integer('position_x'),
+            positionY: $request->integer('position_y'),
         );
-
-        if ($request->has('position_x')) {
-            $node->update([
-                'position_x' => $request->integer('position_x'),
-                'position_y' => $request->integer('position_y'),
-            ]);
-        }
 
         return new WorkflowNodeResource($node);
     }
@@ -61,7 +56,7 @@ class WorkflowNodeController extends Controller
             'position_y' => ['required', 'integer'],
         ]);
 
-        $node->update([
+        $node = $this->service->updateNode($node, [
             'position_x' => $request->integer('position_x'),
             'position_y' => $request->integer('position_y'),
         ]);
@@ -164,14 +159,14 @@ class WorkflowNodeController extends Controller
             ], fn ($v) => $v !== null);
         }
 
-        $node->update(['pinned_data' => $pinnedData]);
+        $node = $this->service->updateNode($node, ['pinned_data' => $pinnedData]);
 
         return new WorkflowNodeResource($node->fresh());
     }
 
     public function unpin(Workflow $workflow, WorkflowNode $node): WorkflowNodeResource
     {
-        $node->update(['pinned_data' => null]);
+        $node = $this->service->updateNode($node, ['pinned_data' => null]);
 
         return new WorkflowNodeResource($node->fresh());
     }

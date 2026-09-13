@@ -61,8 +61,8 @@ it('depends on the stable Durable Workflow 2 release line', function (): void {
     );
     $version = InstalledVersions::getVersion('durable-workflow/workflow');
 
-    expect($composer['require']['durable-workflow/workflow'] ?? null)->toBe('^2.0.9')
+    expect($composer['require']['durable-workflow/workflow'] ?? null)->toBe('^2.0.14')
         ->and($version)->not->toBeNull()
-        ->and(version_compare((string) $version, '2.0.9', '>='))->toBeTrue()
+        ->and(version_compare((string) $version, '2.0.14', '>='))->toBeTrue()
         ->and(version_compare((string) $version, '3.0.0', '<'))->toBeTrue();
 });

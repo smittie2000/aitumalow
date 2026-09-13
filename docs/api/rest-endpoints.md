@@ -15,6 +15,14 @@ Route::prefix('workflow-engine')
 
 The paths below use `/workflow-engine` only as an example host prefix.
 
+## Graph editing
+
+The current editor uses `GET /workflows/{workflow}/graph` and
+`POST /workflows/{workflow}/graph-edits` for atomic draft gestures, including
+insertion, settings, multi-node moves and undo/redo. See the
+[Graph editing API](/advanced/graph-editing) for the full contract and upgrade
+migration. The granular endpoints below remain available for existing clients.
+
 ## Workflows
 
 ### List Workflows

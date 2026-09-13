@@ -14,6 +14,7 @@ export function RevisionHistoryPanel() {
   const sdk = useEditorSdk()
   const registryStore = useRegistryStoreApi()
   const workflow = useWorkflowEditorStore((state) => state.workflow)
+  const editingBlocked = useWorkflowEditorStore((state) => state.isEditing || !!state.failedEdit || state.editConflict || Object.keys(state.nodeDrafts).length > 0)
   const loadWorkflow = useWorkflowEditorStore((state) => state.loadWorkflow)
   const [revisions, setRevisions] = useState<WorkflowRevision[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -78,7 +79,7 @@ export function RevisionHistoryPanel() {
   }, [sdk.revisions, workflow])
 
   const restoreDraft = async () => {
-    if (!workflow || !revisionToRestore || isRestoring) return
+    if (!workflow || !revisionToRestore || isRestoring || editingBlocked) return
 
     setIsRestoring(true)
     setError(null)
@@ -157,7 +158,7 @@ export function RevisionHistoryPanel() {
                 <button
                   type="button"
                   onClick={() => void compareDraft(revision)}
-                  disabled={isRestoring || comparisonRevisionId !== null}
+                  disabled={isRestoring || comparisonRevisionId !== null || editingBlocked}
                   className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[10px] text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
                   title="Compare this version with the editable draft"
                 >

@@ -44,7 +44,7 @@ Workers and operational commands are supplied by Durable Workflow. Configure an 
 
 ## Stable 2.x compatibility
 
-Aitumalow requires the stable `durable-workflow/workflow:^2.0.9` release line. Its
+Aitumalow requires the stable `durable-workflow/workflow:^2.0.14` release line. Its
 runtime adapters use Durable's semver-covered workflow, activity, start,
 schedule, query, Update, cancellation, and testing APIs only. Durable classes
 and storage models remain private implementation details.
@@ -59,9 +59,19 @@ dependency supplies the signal-audit, signal-resumed parallel replay, portable
 exception-trace, migration-doctor, stable package conformance identity, and fair
 cross-namespace schedule-tick fixes directly. Later patches through 2.0.9 also
 correct Fiber cleanup, delayed delivery, child completion, metadata projection,
-and terminal activity timeout replay. The 2.0.3-to-2.0.9 package comparison
-contains no migration or dependency-requirement changes. Hosts must still run their normal
-migration and readiness checks after updating dependencies.
+and terminal activity timeout replay.
+
+The [2.0.9-to-2.0.14 changes](https://github.com/durable-workflow/workflow/compare/2.0.9...2.0.14)
+add native MariaDB readiness, retain expired activity deadlines after lease
+repair, preserve schedule timestamp precision, reduce repeated projection
+queries, and isolate deterministic workflow time from mutable Carbon values.
+The comparison contains no migration or dependency-requirement changes, and the
+public APIs used by Aitumalow's adapters need no changes. Restart long-running
+PHP workers after upgrading so they load the fixes.
+
+Aitumalow 0.5.0 separately adds a graph-edit receipt table. Hosts must run their
+normal migration and readiness checks after updating dependencies; see the
+[release upgrade steps](/releases/0.5.0).
 
 ## Projections are not the engine
 

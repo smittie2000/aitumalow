@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../api/client.ts'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { WorkflowNodeRun, WorkflowRun } from '../api/types'
 import type { AitumalowEditorSdk } from '../sdk/editorSdk'
@@ -9,15 +10,18 @@ export interface RunStore {
   isLoading: boolean
   isReplaying: boolean
   nodeTestResults: Record<number, WorkflowNodeRun> | null
+  testRun: WorkflowRun | null
+  testGraphHash: string | null
+  testError: string | null
   isTestingNode: boolean
-  lastTriggerPayload: Record<string, unknown> | null
+  lastTriggerPayload: Record<string, unknown>[] | null
   pendingTestNodeId: number | null
   fetchRuns: (workflowId: number) => Promise<void>
   fetchRunDetail: (runId: number) => Promise<void>
   cancelRun: (runId: number) => Promise<void>
   replayRun: (runId: number) => Promise<void>
   clearSelectedRun: () => void
-  testNode: (workflowId: number, nodeId: number, payload?: Record<string, unknown>) => Promise<void>
+  testNode: (workflowId: number, nodeId: number, payload?: Record<string, unknown>[]) => Promise<void>
   clearNodeTestResults: () => void
   requestNodeTest: (nodeId: number) => void
   clearPendingTest: () => void
@@ -32,6 +36,7 @@ export const createRunStore = (
   isLoading: false,
   isReplaying: false,
   nodeTestResults: null,
+  testRun: null, testGraphHash: null, testError: null,
   isTestingNode: false,
   lastTriggerPayload: null,
   pendingTestNodeId: null,
@@ -75,35 +80,56 @@ export const createRunStore = (
   clearSelectedRun: () => set({ selectedRun: null }),
 
   testNode: async (workflowId, nodeId, payload) => {
-    if (payload !== undefined) {
-      set({ lastTriggerPayload: payload })
+    const editor = workflowEditorStore.getState()
+    if (get().isTestingNode) return
+    if (editor.isEditing || editor.failedEdit || editor.editConflict || Object.keys(editor.nodeDrafts).length) {
+      set({ testError: 'Save or discard step settings and resolve pending edits before testing.' })
+      return
     }
-    set({ isTestingNode: true })
+    if (payload !== undefined) set({ lastTriggerPayload: payload })
+    const hash = editor.graphHash
+    set({ isTestingNode: true, testError: null, testGraphHash: hash, testRun: null, nodeTestResults: null })
+    const showRun = (run: WorkflowRun) => {
+      // A result map always belongs to this one run, including while it is running.
+      set({ testRun: run, nodeTestResults: Object.fromEntries((run.node_runs ?? []).map((result) => [result.node_id, result])) })
+    }
     try {
-      const res = await sdk.workflows.testNode(workflowId, nodeId, payload ?? get().lastTriggerPayload ?? undefined)
-      const run = res.data
-      const map: Record<number, WorkflowNodeRun> = {}
-      for (const nr of run.node_runs ?? []) {
-        map[nr.node_id] = nr
+      const res = await sdk.workflows.testNode(workflowId, nodeId, payload ?? get().lastTriggerPayload ?? undefined, hash ?? undefined)
+      let run = res.data
+      if (workflowEditorStore.getState().workflow?.id !== workflowId) return
+      showRun(run)
+      for (let attempt = 0; attempt < 60 && ['pending', 'running'].includes(run.status); attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        if (workflowEditorStore.getState().workflow?.id !== workflowId) return
+        run = (await sdk.runs.show(run.id)).data
+        if (workflowEditorStore.getState().workflow?.id !== workflowId) return
+        showRun(run)
       }
-      // Merge with existing results so step-by-step data is preserved
-      set({ nodeTestResults: { ...get().nodeTestResults, ...map } })
+      if (['pending', 'running'].includes(run.status)) set({ testError: 'This run is still in progress. Follow it in Run history.' })
+    } catch (error) {
+      if (workflowEditorStore.getState().workflow?.id === workflowId) set({ testError: apiErrorMessage(error, 'The step could not be tested.') })
+      throw error
     } finally {
       set({ isTestingNode: false })
     }
   },
 
-  clearNodeTestResults: () => set({ nodeTestResults: null, lastTriggerPayload: null }),
+  clearNodeTestResults: () => set({ nodeTestResults: null, lastTriggerPayload: null, testRun: null, testGraphHash: null, testError: null }),
 
   requestNodeTest: (nodeId: number) => {
     const { workflow, rfNodes } = workflowEditorStore.getState()
     if (!workflow) return
+    const editor = workflowEditorStore.getState()
+    if (editor.isEditing || editor.failedEdit || editor.editConflict || Object.keys(editor.nodeDrafts).length) {
+      set({ testError: 'Save or discard step settings and resolve pending edits before testing.' })
+      return
+    }
 
     const { lastTriggerPayload, testNode } = get()
 
     // If we already have a trigger payload from a previous test, reuse it
     if (lastTriggerPayload) {
-      testNode(workflow.id, nodeId)
+      void testNode(workflow.id, nodeId).catch(() => {})
       return
     }
 
@@ -112,7 +138,7 @@ export const createRunStore = (
     const triggerPinned = (triggerNode?.data as Record<string, unknown> | undefined)?.apiNode as Record<string, unknown> | undefined
     const pinnedInput = (triggerPinned?.pinned_data as Record<string, unknown> | undefined)?.input as unknown[] | undefined
     if (pinnedInput?.length) {
-      testNode(workflow.id, nodeId, pinnedInput as unknown as Record<string, unknown>)
+      void testNode(workflow.id, nodeId, pinnedInput as Record<string, unknown>[]).catch(() => {})
       return
     }
 

@@ -8,7 +8,9 @@ use Aitumalow\DTOs\WorkflowContext;
 use Aitumalow\Facades\WorkflowAutomation;
 use Aitumalow\Mcp\Tools\AddWorkflowNodeTool;
 use Aitumalow\Mcp\Tools\ConnectWorkflowNodesTool;
+use Aitumalow\Mcp\Tools\EditWorkflowGraphTool;
 use Aitumalow\Mcp\Tools\GetWorkflowDraftTool;
+use Aitumalow\Mcp\Tools\GetWorkflowGraphTool;
 use Aitumalow\Mcp\Tools\ListWorkflowNodesTool;
 use Aitumalow\Mcp\Tools\RunWorkflowTool;
 use Aitumalow\Mcp\Tools\SaveWorkflowDraftTool;
@@ -19,12 +21,29 @@ use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowNode as WorkflowNodeModel;
 use Aitumalow\Models\WorkflowRun;
 use Aitumalow\Services\WorkflowDraftService;
+use Aitumalow\Services\WorkflowGraphService;
 use Aitumalow\Services\WorkflowService;
+use Illuminate\Support\Str;
 use Illuminate\Testing\Fluent\AssertableJson;
 use Laravel\Mcp\Server\Transport\FakeTransporter;
 
 beforeEach(function (): void {
     WorkflowAutomation::register(McpCreateTicketAction::class);
+});
+
+it('shares identity-preserving graph edits and exact retries with the editor API', function (): void {
+    $workflow = Workflow::factory()->create();
+    $graphs = app(WorkflowGraphService::class);
+    $hash = $graphs->get($workflow)['hash'];
+    WorkflowMcpServer::tool(GetWorkflowGraphTool::class, ['workflow_id' => $workflow->id])
+        ->assertOk()->assertStructuredContent(fn (AssertableJson $json) => $json->where('hash', $hash)->where('workflow.id', $workflow->id)->etc());
+    $request = ['workflow_id' => $workflow->id, 'request_id' => (string) Str::uuid(), 'expected_hash' => $hash, 'operation' => 'add_node',
+        'data' => ['node_key' => 'core.manual', 'name' => 'Start', 'position_x' => 100, 'position_y' => 200]];
+    WorkflowMcpServer::tool(EditWorkflowGraphTool::class, $request)->assertOk();
+    WorkflowMcpServer::tool(EditWorkflowGraphTool::class, $request)->assertOk();
+    expect($workflow->nodes()->count())->toBe(1)
+        ->and($workflow->nodes()->firstOrFail()->position_x)->toBe(100)
+        ->and($workflow->graphEdits()->count())->toBe(1);
 });
 
 it('exposes only the focused catalog and workflow composition tools', function (): void {
@@ -38,6 +57,8 @@ it('exposes only the focused catalog and workflow composition tools', function (
         'list_workflows',
         'show_workflow',
         'get_workflow_draft',
+        'get_workflow_graph',
+        'edit_workflow_graph',
         'create_workflow',
         'save_workflow_draft',
         'update_workflow',

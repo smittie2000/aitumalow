@@ -57,8 +57,8 @@ export const createWorkflowsApi = (client: HttpTransport) => ({
   validate: (id: number) =>
     client.post<{ valid: boolean; errors: string[] }>(`/workflows/${id}/validate`),
 
-  testNode: (id: number, nodeId: number, payload?: Record<string, unknown>) =>
-    client.post<ApiResponse<WorkflowRun>>(`/workflows/${id}/test-node`, { node_id: nodeId, payload }),
+  testNode: (id: number, nodeId: number, payload?: Record<string, unknown>[], expectedGraphHash?: string) =>
+    client.post<ApiResponse<WorkflowRun>>(`/workflows/${id}/test-node`, { node_id: nodeId, payload, expected_graph_hash: expectedGraphHash }),
 })
 
 export const workflowsApi = createWorkflowsApi(api)
