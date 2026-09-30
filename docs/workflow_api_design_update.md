@@ -359,18 +359,18 @@ The optional MCP server projects the same `NodeRegistry` catalog and
 second capability list, MCP transport, authentication, tenancy, credentials,
 provider settings, or an agent prompt.
 
-The initial imported MCP surface has been reduced to fifteen operations:
-
-- inspect registered workflow node definitions;
-- inspect and edit workflow graphs;
-- validate and activate workflows; and
-- start an explicitly selected active workflow.
+The MCP surface covers the editor's stored workflow controls: catalog/reference
+inspection, atomic creation and graph editing, settings and organization,
+variables and pins, draft tests, publication, run history/recovery, revision
+comparison/restoration, duplication and deletion. Canvas selection and zoom
+remain client state. See the current [MCP tool contract](/mcp).
 
 All tool results are structured MCP content. Graph mutations accept exact
 registered keys, apply declared defaults, reject undeclared configuration
-fields, and never accept PHP class names or arbitrary model names. Folders,
-tags, credentials, pinned editor data, run browsing, broad registry operations,
-and the package-authored workflow-builder prompt are outside this boundary.
+fields, and never accept PHP class names or arbitrary model names. An agent
+creates workflow data through this interface without generating application
+PHP. The host mounts the transport with the same permissions and tenant scope
+as the editor; capabilities and credentials remain host installation concerns.
 
 The representative composition proof is the same host-owned WhatsApp
 conversation-to-ticket flow used by the SDK catalog. The host receives and

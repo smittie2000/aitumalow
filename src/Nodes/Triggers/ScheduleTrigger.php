@@ -27,7 +27,7 @@ class ScheduleTrigger implements TriggerInterface
     public static function configSchema(): array
     {
         return [
-            ['key' => 'cron', 'type' => 'cron', 'label' => 'Cron Expression', 'required' => true, 'default' => '* * * * *'],
+            ['key' => 'cron', 'type' => 'cron', 'label' => 'Schedule', 'required' => true, 'default' => '* * * * *'],
             ['key' => 'timezone', 'type' => 'timezone', 'label' => 'Timezone', 'required' => true, 'default' => 'UTC'],
         ];
     }

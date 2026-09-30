@@ -9,6 +9,7 @@ interface Props {
 export function IntegerField({ field, value, onChange }: Props) {
   return (
     <input
+      aria-label={field.label}
       type="number"
       value={value ?? ''}
       onChange={(e) => onChange(parseInt(e.target.value) || 0)}

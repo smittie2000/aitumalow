@@ -9,6 +9,7 @@ use Aitumalow\Engine\GraphValidator;
 use Aitumalow\Exceptions\WorkflowDraftConflictException;
 use Aitumalow\Models\Workflow;
 use Aitumalow\Models\WorkflowNode;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Support\Facades\DB;
 
 final readonly class WorkflowDraftService
@@ -30,7 +31,23 @@ final readonly class WorkflowDraftService
     {
         $id = $workflow instanceof Workflow ? $workflow->id : $workflow;
 
-        return $this->project(Workflow::query()->findOrFail($id));
+        return $this->project(ConfiguredModels::workflow()::query()->findOrFail($id));
+    }
+
+    /**
+     * Create a complete draft in one transaction, leaving no empty workflow on failure.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    public function create(array $metadata, ?WorkflowDraftDefinition $definition = null): array
+    {
+        return DB::transaction(function () use ($metadata, $definition): array {
+            $workflow = $this->workflows->create($metadata);
+            $draft = $this->get($workflow);
+
+            return $definition === null ? $draft : $this->replace($workflow, $definition, $draft['draft_hash']);
+        });
     }
 
     /**
@@ -51,7 +68,7 @@ final readonly class WorkflowDraftService
         $id = $workflow instanceof Workflow ? $workflow->id : $workflow;
 
         return DB::transaction(function () use ($id, $draft, $expectedDraftHash): array {
-            $locked = Workflow::query()->lockForUpdate()->findOrFail($id);
+            $locked = ConfiguredModels::workflow()::query()->lockForUpdate()->findOrFail($id);
             $current = $this->project($locked);
 
             if (! hash_equals($current['draft_hash'], $expectedDraftHash)) {
@@ -63,12 +80,14 @@ final readonly class WorkflowDraftService
 
             /** @var array<string, WorkflowNode> $nodes */
             $nodes = [];
-            foreach ($draft->nodes as $node) {
+            foreach ($draft->nodes as $index => $node) {
                 $nodes[$node['id']] = $this->workflows->addNode(
                     $locked,
                     $node['capability'],
                     $node['config'],
                     $node['name'],
+                    positionX: 400,
+                    positionY: 100 + $index * 200,
                 );
             }
 

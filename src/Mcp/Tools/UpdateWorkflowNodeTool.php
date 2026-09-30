@@ -2,8 +2,8 @@
 
 namespace Aitumalow\Mcp\Tools;
 
-use Aitumalow\Models\WorkflowNode as WorkflowNodeModel;
 use Aitumalow\Services\WorkflowService;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -35,7 +35,12 @@ final class UpdateWorkflowNodeTool extends Tool
 
     public function handle(Request $request): ResponseFactory
     {
-        $node = WorkflowNodeModel::findOrFail($request->integer('workflow_node_id'));
+        $request->validate([
+            'workflow_node_id' => ['required', 'integer'],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'config' => ['sometimes', 'array'],
+        ]);
+        $node = ConfiguredModels::node()::findOrFail($request->integer('workflow_node_id'));
         $data = [];
 
         if ($request->get('name') !== null) {

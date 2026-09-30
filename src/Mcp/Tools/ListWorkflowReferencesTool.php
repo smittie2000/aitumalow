@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Aitumalow\Mcp\Tools;
 
 use Aitumalow\Contracts\ExecutionScopeResolver;
-use Aitumalow\Models\Workflow;
 use Aitumalow\Registry\ReferenceProviderRegistry;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -44,7 +44,7 @@ final class ListWorkflowReferencesTool extends Tool
             return Response::error("Reference source [{$source}] is not registered.");
         }
 
-        $workflow = Workflow::findOrFail($request->integer('workflow_id'));
+        $workflow = ConfiguredModels::workflow()::findOrFail($request->integer('workflow_id'));
 
         return Response::structured(['references' => $this->providers->options(
             $source,

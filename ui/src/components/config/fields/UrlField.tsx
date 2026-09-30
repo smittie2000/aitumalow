@@ -11,6 +11,7 @@ interface Props {
 export function UrlField({ field, value, onChange, variables }: Props) {
   const input = (
     <input
+      aria-label={field.label}
       type="url"
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}

@@ -2,7 +2,7 @@
 
 namespace Aitumalow\Mcp\Tools;
 
-use Aitumalow\Models\Workflow;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -28,7 +28,7 @@ class ShowWorkflowTool extends Tool
 
     public function handle(Request $request): ResponseFactory
     {
-        $workflow = Workflow::with(['nodes', 'edges'])
+        $workflow = ConfiguredModels::workflow()::with(['nodes', 'edges', 'tags', 'folder', 'activeRevision'])
             ->findOrFail($request->integer('workflow_id'));
 
         return Response::structured([
@@ -37,6 +37,10 @@ class ShowWorkflowTool extends Tool
                 'name' => $workflow->name,
                 'description' => $workflow->description,
                 'is_active' => $workflow->is_active,
+                'settings' => $workflow->settings,
+                'active_revision_id' => $workflow->active_revision_id,
+                'folder_id' => $workflow->folder_id,
+                'tags' => $workflow->tags->toArray(),
             ],
             'nodes' => $workflow->nodes->map(fn ($node) => [
                 'id' => $node->id,

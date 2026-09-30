@@ -15,7 +15,7 @@ final class WorkflowRevisionResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        $workflow = $request->route('workflow');
+        $workflow = $request->route('workflow') ?? $this->workflow;
 
         return [
             'id' => $this->id,

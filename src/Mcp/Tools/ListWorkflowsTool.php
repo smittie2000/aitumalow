@@ -2,7 +2,9 @@
 
 namespace Aitumalow\Mcp\Tools;
 
+use Aitumalow\Http\Resources\WorkflowResource;
 use Aitumalow\Models\Workflow;
+use Aitumalow\Services\WorkflowListingService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -24,30 +26,26 @@ class ListWorkflowsTool extends Tool
         return [
             'page' => $schema->integer()->description('Page number')->default(1),
             'per_page' => $schema->integer()->description('Items per page')->default(15),
+            'sort' => $schema->string()->enum(['name', 'created_at', 'updated_at']),
+            'direction' => $schema->string()->enum(['asc', 'desc']),
+            'active_only' => $schema->boolean(),
+            'folder_id' => $schema->integer(),
+            'uncategorized' => $schema->boolean(),
+            'tag_id' => $schema->integer(),
             'search' => $schema->string()->description('Search workflows by name'),
         ];
     }
 
     public function handle(Request $request): ResponseFactory
     {
-        $page = $request->integer('page', 1);
-        $perPage = $request->integer('per_page', 15);
-
-        $query = Workflow::withCount(['nodes', 'edges']);
-
-        if ($search = $request->string('search')->toString()) {
-            $query->where('name', 'like', "%{$search}%");
-        }
-        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
-
-        $items = collect($paginator->items())->map(fn (Workflow $w) => [
-            'id' => $w->id,
-            'name' => $w->name,
-            'description' => $w->description,
-            'is_active' => $w->is_active,
-            'nodes_count' => $w->nodes_count,
-            'edges_count' => $w->edges_count,
-        ])->all();
+        $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'], 'per_page' => ['sometimes', 'integer', 'between:1,100'],
+            'search' => ['sometimes', 'string'], 'sort' => ['sometimes', 'in:name,created_at,updated_at'],
+            'direction' => ['sometimes', 'in:asc,desc'], 'active_only' => ['sometimes', 'boolean'],
+            'folder_id' => ['sometimes', 'integer'], 'uncategorized' => ['sometimes', 'boolean'], 'tag_id' => ['sometimes', 'integer'],
+        ]);
+        $paginator = app(WorkflowListingService::class)->query($filters)->paginate($filters['per_page'] ?? 15, ['*'], 'page', $filters['page'] ?? 1);
+        $items = collect($paginator->items())->map(fn (Workflow $workflow): array => new WorkflowResource($workflow)->resolve())->all();
 
         return Response::structured([
             'workflows' => $items,

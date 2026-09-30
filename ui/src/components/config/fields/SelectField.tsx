@@ -32,6 +32,7 @@ export function SelectField({ field, value, onChange }: Props) {
   return (
     <div className="relative">
       <input
+        aria-label={field.label}
         list={listId}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}

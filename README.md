@@ -10,12 +10,12 @@ run snapshots, and inspect durable executions from a Filament panel.
 ## Status
 
 Aitumalow is under active development and is not yet declared production ready.
-Runtime correctness is delegated to the stable `durable-workflow/workflow:^2.0.14`
+Runtime correctness is delegated to the stable `durable-workflow/workflow:^2.2.21`
 dependency. The package itself owns the editor, stable host-capability catalog,
 graph validation, scoped references, graph snapshots, and run projections.
 
-See the [0.5.0 release notes](docs/releases/0.5.0.md) for the editor improvements,
-atomic graph API, and host upgrade steps.
+See the [0.6.0 release notes](docs/releases/0.6.0.md) for MCP/editor parity,
+simpler authoring, real browser tests and host upgrade steps.
 
 ## Principles
 
@@ -129,10 +129,12 @@ The package ships no generic mail, HTTP, model-update, shell, arbitrary-code,
 job-dispatch, notification, or provider node. Hosts register bounded equivalents
 when their product needs them.
 
-Once the package is published to Packagist, installation will use:
+Install on PHP 8.4+, Laravel 13.30+ and Filament 5. If this fork is unavailable
+from Packagist, add `https://github.com/smittie2000/aitumalow` as a Composer VCS
+repository, then install the tagged release:
 
 ```bash
-composer require aitumalow/aitumalow
+composer require 'aitumalow/aitumalow:^0.6.0'
 php artisan vendor:publish --tag=aitumalow-config
 php artisan migrate
 ```
@@ -157,6 +159,11 @@ composer install
 composer test
 composer format:test
 ```
+
+For real interaction tests, run `npm run test:browser` from `ui/`. The isolated
+host runs the compiled editor, a real database queue worker, test leads and a
+local SMTP inbox. See [browser testing](docs/advanced/browser-testing.md) for
+setup, manual inspection and Codex browser control.
 
 ## License
 

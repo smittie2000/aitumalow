@@ -12,6 +12,7 @@ export function BooleanField({ field, value, onChange }: Props) {
       <button
         type="button"
         role="switch"
+        aria-label={field.label}
         aria-checked={!!value}
         onClick={() => onChange(!value)}
         className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${

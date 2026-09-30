@@ -12,6 +12,7 @@ const advancedSection = {
     { text: 'Execution Engine', link: '/advanced/execution-engine' },
     { text: 'Security', link: '/advanced/security' },
     { text: 'Testing', link: '/advanced/testing' },
+    { text: 'Browser Testing', link: '/advanced/browser-testing' },
   ],
 }
 
@@ -52,7 +53,7 @@ export default defineConfig({
           items: [
             { text: 'Why Use This?', link: '/getting-started/why-use-this' },
             { text: 'Installation', link: '/getting-started/installation' },
-            { text: '0.5.0 Release Notes', link: '/releases/0.5.0' },
+            { text: '0.6.0 Release Notes', link: '/releases/0.6.0' },
             { text: 'Quick Start', link: '/getting-started/quick-start' },
             { text: 'Core Concepts', link: '/getting-started/concepts' },
           ],
@@ -122,6 +123,7 @@ export default defineConfig({
           items: [
             { text: 'Scheduled Report', link: '/examples/scheduled-report' },
             { text: 'Mailbox Quote Agent', link: '/examples/mailbox-quote-agent' },
+            { text: 'Scheduled Host Agents', link: '/examples/scheduled-host-agents' },
           ],
         },
       ],

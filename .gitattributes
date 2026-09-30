@@ -5,6 +5,9 @@
 
 /docs export-ignore
 /tests export-ignore
+/ui/tests export-ignore
+/ui/playwright.config.ts export-ignore
+/ui/scripts/browser-host.mjs export-ignore
 /.editorconfig export-ignore
 /.gitattributes export-ignore
 /.gitignore export-ignore

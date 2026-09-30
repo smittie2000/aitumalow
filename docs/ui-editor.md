@@ -28,6 +28,20 @@ component.
 
 ## Draft and live versions
 
+An empty workflow opens the trigger picker automatically. Choose a step by its
+name, configure it, then use **Add next step** from its settings. **Save and add
+next step** saves pending settings before opening the connected-action picker;
+errors remain visible if the save fails. Branching steps offer a button for each
+output. Data samples are available under Input/Output; expression variables are
+collapsed under **Use data from previous steps** when a field supports them.
+
+Schedules use recurrence, time/day and timezone controls, with custom cron for
+advanced schedules. See [scheduled host agents](/examples/scheduled-host-agents)
+for ticket reminders and daily booking calls.
+
+Run history refreshes automatically while visible, including when a scheduled
+run arrives after the panel opened.
+
 The canvas is always the editable draft. **Activate** publishes its first
 immutable version. Once a workflow is active, **Publish** creates or reuses a
 content-addressed version and moves the live pointer without deactivating the

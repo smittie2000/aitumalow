@@ -2,6 +2,11 @@
 
 `core.schedule` is a visual adapter for Durable Workflow v2 schedules.
 
+In the editor, choose **Every day**, **Weekdays**, **Every week**, **Every hour**
+or **Every minute**, set the time/day when applicable, and select the timezone.
+For example, Every day at 08:00 saves `0 8 * * *`. More complex existing schedules
+remain editable under **Custom cron expression** without being rewritten.
+
 ```php
 $schedule = $workflow->addNode('Every five minutes', 'core.schedule', [
     'cron' => '*/5 * * * *',

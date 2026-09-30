@@ -33,6 +33,8 @@ class WorkflowResource extends JsonResource
             'folder_id' => $this->folder_id,
             'folder' => new WorkflowFolderResource($this->whenLoaded('folder')),
             'tags' => WorkflowTagResource::collection($this->whenLoaded('tags')),
+            'nodes_count' => $this->whenCounted('nodes'),
+            'edges_count' => $this->whenCounted('edges'),
             'nodes' => WorkflowNodeResource::collection($this->whenLoaded('nodes')),
             'edges' => WorkflowEdgeResource::collection($this->whenLoaded('edges')),
         ];

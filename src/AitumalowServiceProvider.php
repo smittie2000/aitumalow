@@ -22,6 +22,7 @@ use Aitumalow\Runtime\RuntimeProjectionListener;
 use Aitumalow\Services\UnscopedExecutionScopeResolver;
 use Aitumalow\Services\WorkflowNodeConfigValidator;
 use Aitumalow\Services\WorkflowService;
+use Aitumalow\Support\ConfiguredModels;
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
@@ -45,6 +46,23 @@ final class AitumalowServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void
     {
+        // Implicit route binding must resolve the same host model subclasses
+        // (and global scopes) as services, relationships, and MCP tools.
+        foreach ([
+            Models\Workflow::class => 'workflow',
+            Models\WorkflowNode::class => 'node',
+            Models\WorkflowEdge::class => 'edge',
+            Models\WorkflowRun::class => 'run',
+            Models\WorkflowCommand::class => 'command',
+            Models\WorkflowRevision::class => 'revision',
+            Models\WorkflowNodeRun::class => 'nodeRun',
+            Models\WorkflowFolder::class => 'folder',
+            Models\WorkflowTag::class => 'tag',
+            Models\WorkflowGraphEdit::class => 'graphEdit',
+        ] as $base => $resolver) {
+            $this->app->bind($base, fn () => new (ConfiguredModels::$resolver()));
+        }
+
         // Application-lifetime definition catalogs. These contain only node,
         // plugin, expression-function, and middleware definitions registered
         // while the application boots.

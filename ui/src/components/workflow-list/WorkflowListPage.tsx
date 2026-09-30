@@ -74,6 +74,8 @@ export function WorkflowListPage() {
   const { nodes: registryNodes, fetchRegistry } = useRegistryStore()
 
   const [showCreate, setShowCreate] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -106,13 +108,21 @@ export function WorkflowListPage() {
   }, [setSearch])
 
   const handleCreate = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || isCreating) return
     const folderId = typeof selectedFolderId === 'number' ? selectedFolderId : null
-    const wf = await createWorkflow(newName.trim(), newDesc.trim() || undefined, folderId)
-    setShowCreate(false)
-    setNewName('')
-    setNewDesc('')
-    navigate(`/${wf.id}`)
+    setIsCreating(true)
+    setCreateError(null)
+    try {
+      const wf = await createWorkflow(newName.trim(), newDesc.trim() || undefined, folderId)
+      setShowCreate(false)
+      setNewName('')
+      setNewDesc('')
+      navigate(`/${wf.id}`)
+    } catch (error) {
+      setCreateError(apiErrorMessage(error, 'Could not create the workflow. Try again.'))
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -288,7 +298,7 @@ export function WorkflowListPage() {
             </button>
             <button
               type="button"
-              onClick={() => setShowCreate(true)}
+              onClick={() => { setCreateError(null); setShowCreate(true) }}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Plus size={16} />
@@ -525,8 +535,8 @@ export function WorkflowListPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Workflow</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="create-workflow-title" className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 dark:shadow-2xl dark:shadow-black/40">
+            <h2 id="create-workflow-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Workflow</h2>
             {typeof selectedFolderId === 'number' && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Location: {folderPathLabel(folders, selectedFolderId)}
@@ -534,8 +544,9 @@ export function WorkflowListPage() {
             )}
             <div className="mt-4 space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                <label htmlFor="create-workflow-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
                 <input
+                  id="create-workflow-name"
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -546,8 +557,9 @@ export function WorkflowListPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                <label htmlFor="create-workflow-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                 <input
+                  id="create-workflow-description"
                   type="text"
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
@@ -557,10 +569,12 @@ export function WorkflowListPage() {
                 />
               </div>
             </div>
+            {createError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{createError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
+                disabled={isCreating}
                 className="rounded-md px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
@@ -568,10 +582,10 @@ export function WorkflowListPage() {
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={!newName.trim()}
+                disabled={!newName.trim() || isCreating}
                 className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                Create
+                {isCreating ? 'Creating…' : 'Create'}
               </button>
             </div>
           </div>

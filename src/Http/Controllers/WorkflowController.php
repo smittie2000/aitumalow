@@ -8,6 +8,7 @@ use Aitumalow\Http\Requests\UpdateWorkflowRequest;
 use Aitumalow\Http\Resources\WorkflowResource;
 use Aitumalow\Http\Resources\WorkflowRunResource;
 use Aitumalow\Models\Workflow;
+use Aitumalow\Services\WorkflowListingService;
 use Aitumalow\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,27 +23,10 @@ class WorkflowController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $sortField = in_array($request->input('sort'), ['name', 'created_at', 'updated_at'], true)
-            ? $request->input('sort')
-            : 'created_at';
-        $sortDir = $request->input('direction') === 'asc' ? 'asc' : 'desc';
-
-        $workflows = Workflow::query()
-            ->with(['tags', 'folder', 'activeRevision'])
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
-            ->when($request->boolean('active_only'), fn ($q) => $q->where('is_active', true))
-            ->when($request->filled('folder_id'), fn ($q) => $q->where('folder_id', $request->integer('folder_id')))
-            ->when($request->boolean('uncategorized'), fn ($q) => $q->whereNull('folder_id'))
-            ->when($request->filled('tag'), function ($q) use ($request) {
-                $tags = is_array($request->input('tag')) ? $request->input('tag') : [$request->input('tag')];
-                $q->whereHas('tags', fn ($t) => $t->whereIn('name', $tags));
-            })
-            ->when($request->filled('tag_id'), function ($q) use ($request) {
-                $tagIds = is_array($request->input('tag_id')) ? $request->input('tag_id') : [$request->input('tag_id')];
-                $q->whereHas('tags', fn ($t) => $t->whereIn($t->getModel()->getTable().'.id', $tagIds));
-            })
-            ->orderBy($sortField, $sortDir)
-            ->paginate(min($request->integer('per_page', 15), 100));
+        $workflows = app(WorkflowListingService::class)->query([
+            ...$request->only(['search', 'sort', 'direction', 'folder_id', 'tag', 'tag_id']),
+            'active_only' => $request->boolean('active_only'), 'uncategorized' => $request->boolean('uncategorized'),
+        ])->paginate(max(1, min($request->integer('per_page', 15), 100)));
 
         return WorkflowResource::collection($workflows);
     }

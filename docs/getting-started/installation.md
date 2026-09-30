@@ -3,12 +3,18 @@
 ## Requirements
 
 - PHP 8.4+
-- Laravel 13
+- Laravel 13.30+
+- Filament 5
+- Durable Workflow 2.2.21+ (installed by Composer)
+- Laravel MCP 1.0+ when using the optional MCP server
 
 ## Install via Composer
 
+If this fork is not available from Packagist, add a Composer VCS repository
+pointing at `https://github.com/smittie2000/aitumalow` before installing.
+
 ```bash
-composer require aitumalow/aitumalow
+composer require 'aitumalow/aitumalow:^0.6.0'
 ```
 
 The package auto-discovers its service provider. No manual registration needed.

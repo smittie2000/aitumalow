@@ -11,6 +11,7 @@ interface Props {
 export function CodeField({ field, value, onChange, variables }: Props) {
   const input = (
     <textarea
+      aria-label={field.label}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       rows={8}

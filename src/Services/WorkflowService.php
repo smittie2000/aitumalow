@@ -49,7 +49,7 @@ class WorkflowService
 
     public function findByKey(string $key): Workflow
     {
-        return Workflow::query()->where('key', $key)->firstOrFail();
+        return ConfiguredModels::workflow()::query()->where('key', $key)->firstOrFail();
     }
 
     /**
@@ -67,10 +67,10 @@ class WorkflowService
                 $this->canonicalize($definition->toArray()),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION,
             ));
-            $workflow = Workflow::withTrashed()->where('key', $definition->key)->lockForUpdate()->first();
+            $workflow = ConfiguredModels::workflow()::withTrashed()->where('key', $definition->key)->lockForUpdate()->first();
 
             if (! $workflow instanceof Workflow) {
-                $workflow = Workflow::query()->create([
+                $workflow = ConfiguredModels::workflow()::query()->create([
                     'key' => $definition->key,
                     'name' => $definition->name,
                     'description' => $definition->description,
@@ -176,10 +176,10 @@ class WorkflowService
                 $this->canonicalize($blueprint->toArray()),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION,
             ));
-            $workflow = Workflow::withTrashed()->where('key', $blueprint->key)->lockForUpdate()->first();
+            $workflow = ConfiguredModels::workflow()::withTrashed()->where('key', $blueprint->key)->lockForUpdate()->first();
 
             if (! $workflow instanceof Workflow) {
-                $workflow = Workflow::query()->create([
+                $workflow = ConfiguredModels::workflow()::query()->create([
                     'key' => $blueprint->key,
                     'name' => $blueprint->name,
                     'description' => $blueprint->description,
@@ -471,7 +471,7 @@ class WorkflowService
     {
         $command = $command instanceof WorkflowCommand
             ? $command
-            : WorkflowCommand::findOrFail($command);
+            : ConfiguredModels::command()::findOrFail($command);
 
         return $this->runtime->synchronizeCommand($command);
     }
@@ -538,10 +538,11 @@ class WorkflowService
     /** @param array<string, mixed> $data */
     public function create(array $data): Workflow
     {
+        $this->validateOrganizationAccess($data);
         $tagIds = $data['tag_ids'] ?? null;
         unset($data['tag_ids']);
 
-        $workflow = Workflow::create($data);
+        $workflow = ConfiguredModels::workflow()::create($data);
 
         if ($tagIds !== null) {
             $workflow->tags()->sync($tagIds);
@@ -555,6 +556,7 @@ class WorkflowService
     public function update(int|Workflow $workflow, array $data): Workflow
     {
         $workflow = $this->resolveWorkflow($workflow);
+        $this->validateOrganizationAccess($data);
 
         $tagIds = $data['tag_ids'] ?? null;
         unset($data['tag_ids']);
@@ -583,6 +585,7 @@ class WorkflowService
         $new->key = 'workflow_'.Str::lower((string) Str::ulid());
         $new->name = $workflow->name.' (Copy)';
         $new->is_active = false;
+        $new->active_revision_id = null;
         $new->created_via = CreatedVia::Duplicate;
         $new->save();
 
@@ -615,7 +618,7 @@ class WorkflowService
         $workflow = $this->resolveWorkflow($workflow);
 
         return DB::transaction(function () use ($workflow, $principalReference): WorkflowRevision {
-            $locked = Workflow::query()->lockForUpdate()->findOrFail($workflow->id);
+            $locked = ConfiguredModels::workflow()::query()->lockForUpdate()->findOrFail($workflow->id);
             $this->validator->validate($locked);
 
             $definition = $this->snapshots->captureDraft($locked);
@@ -646,7 +649,7 @@ class WorkflowService
             : $this->resolveRevision($revision);
 
         DB::transaction(function () use ($workflow, $revision): void {
-            $locked = Workflow::query()->lockForUpdate()->findOrFail($workflow->id);
+            $locked = ConfiguredModels::workflow()::query()->lockForUpdate()->findOrFail($workflow->id);
 
             if ($revision->workflow_id !== $locked->id) {
                 throw new LogicException("Revision {$revision->id} does not belong to workflow {$locked->id}.");
@@ -691,7 +694,7 @@ class WorkflowService
         $definition = $this->snapshots->fromRevision($revision);
 
         DB::transaction(function () use ($workflow, $definition): void {
-            $locked = Workflow::query()->lockForUpdate()->findOrFail($workflow->id);
+            $locked = ConfiguredModels::workflow()::query()->lockForUpdate()->findOrFail($workflow->id);
             $locked->edges()->delete();
             $locked->nodes()->delete();
             $locked->update([
@@ -850,21 +853,33 @@ class WorkflowService
 
     // ── Helpers ────────────────────────────────────────────────────
 
+    /** @param array<string, mixed> $data */
+    private function validateOrganizationAccess(array $data): void
+    {
+        if (isset($data['folder_id'])) {
+            ConfiguredModels::folder()::query()->findOrFail($data['folder_id']);
+        }
+
+        foreach ($data['tag_ids'] ?? [] as $id) {
+            ConfiguredModels::tag()::query()->findOrFail($id);
+        }
+    }
+
     private function resolveWorkflow(int|Workflow $workflow): Workflow
     {
-        return $workflow instanceof Workflow ? $workflow : Workflow::findOrFail($workflow);
+        return $workflow instanceof Workflow ? $workflow : ConfiguredModels::workflow()::findOrFail($workflow);
     }
 
     private function resolveRun(int|WorkflowRun $run): WorkflowRun
     {
-        return $run instanceof WorkflowRun ? $run : WorkflowRun::findOrFail($run);
+        return $run instanceof WorkflowRun ? $run : ConfiguredModels::run()::findOrFail($run);
     }
 
     private function resolveRevision(int|WorkflowRevision $revision): WorkflowRevision
     {
         return $revision instanceof WorkflowRevision
             ? $revision
-            : WorkflowRevision::findOrFail($revision);
+            : ConfiguredModels::revision()::findOrFail($revision);
     }
 
     private function defaultIdempotencyScope(Workflow $workflow, ExecutionScope $scope): string

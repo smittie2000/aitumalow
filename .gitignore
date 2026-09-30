@@ -31,6 +31,8 @@ docs/node_modules/
 
 # Workflow UI
 ui/node_modules/
+ui/playwright-report/
+ui/test-results/
 
 # Laravel test artifacts
 storage/

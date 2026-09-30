@@ -3,7 +3,10 @@
 # MCP Server
 
 Aitumalow ships an optional MCP server for composing and running workflows from
-the same host-registered `#[WorkflowNode]` catalog used by the editor SDK. It
+the same host-registered `#[WorkflowNode]` catalog used by the editor SDK. An agent
+uses this interface as a user: it discovers available steps, configures and saves
+workflow data, reviews results and uses the same controls as the editor. Building
+a workflow does not require generating PHP in the host application. The package
 does not own an agent, model, conversation, credentials, or MCP transport.
 
 ## Setup
@@ -11,7 +14,7 @@ does not own an agent, model, conversation, credentials, or MCP transport.
 Install Laravel MCP and register the transport in the host application:
 
 ```bash
-composer require laravel/mcp
+composer require 'laravel/mcp:^1.0.1'
 ```
 
 ```php
@@ -27,6 +30,14 @@ For a private local agent process, the host may instead register:
 ```php
 Mcp::local('aitumalow', WorkflowMcpServer::class);
 ```
+
+The transport registration is a one-time installation concern, following
+[Laravel MCP server registration](https://laravel.com/docs/13.x/mcp#server-registration).
+Connect an agent to that endpoint with the same authenticated principal, tenant
+resolution and workflow permissions used by the editor. Each new workflow is
+stored data; it needs no new route, PHP class, action or application deployment.
+An agent can use everything the editor's registered catalog exposes. The host's
+existing integrations still determine which business actions are available.
 
 ## Contract
 
@@ -67,17 +78,17 @@ execution surface.
 
 | Tool | Purpose | Annotation |
 |------|---------|------------|
-| `list_workflow_nodes` | List safe workflow node summaries from the host catalog | Read-only |
+| `list_workflow_nodes` | Search the editor catalog; `include_schemas:true` includes ports and configuration in one call | Read-only |
 | `show_workflow_node` | Show one exact key with schemas and ports | Read-only |
 | `list_workflow_references` | List scoped opaque values for a reference schema source | Read-only |
-| `list_workflows` | List workflow drafts and active workflows | Read-only |
+| `list_workflows` | Search/filter/sort workflows by folder, tag and active status | Read-only |
 | `show_workflow` | Show one workflow graph | Read-only |
 | `get_workflow_draft` | Get an editable whole-graph document and concurrency hash | Read-only |
 | `get_workflow_graph` | Get the editor graph with stable row IDs and its concurrency hash | Read-only |
-| `create_workflow` | Create an empty workflow draft | Mutating |
+| `create_workflow` | Create an empty draft or a complete validated graph atomically, with settings/folder/tags | Mutating |
 | `save_workflow_draft` | Atomically validate and replace the complete mutable graph | Mutating |
 | `edit_workflow_graph` | Apply one atomic edit, retry its receipt, or undo/redo an edit | Mutating |
-| `update_workflow` | Update its name or description | Idempotent |
+| `update_workflow` | Update name, description, settings, folder and tags | Idempotent |
 | `add_workflow_node` | Add a registered node by exact stable key | Mutating |
 | `update_workflow_node` | Replace a stored node's validated configuration | Idempotent |
 | `remove_workflow_node` | Remove a stored node and connected edges | Destructive |
@@ -87,10 +98,25 @@ execution surface.
 | `activate_workflow` | Activate a valid workflow | Idempotent |
 | `deactivate_workflow` | Deactivate a workflow | Idempotent |
 | `run_workflow` | Start a workflow with host-shaped workflow items | Mutating |
-| `show_workflow_run` | Inspect status, commands, and bounded node diagnostics without raw payloads | Read-only |
+| `show_workflow_run` | Inspect status/commands; `include_data:true` includes editor input/output samples | Read-only |
+| `duplicate_workflow` | Copy the draft into an inactive workflow with no inherited publication | Mutating |
+| `delete_workflow` | Delete a workflow and pause its schedule | Destructive |
+| `get_workflow_variables` | Discover the same expression paths/functions as the editor | Read-only |
+| `test_workflow_node` | Test the current draft through a selected node with pins and optional graph hash | Mutating |
+| `list_workflow_runs` | Browse execution history, including draft tests, with status filtering/pagination | Read-only |
+| `control_workflow_run` | Cancel, resume or replay using the editor runtime controls | Destructive |
+| `list_workflow_revisions` | List immutable versions and identify the live version | Read-only |
+| `compare_workflow_revision` | Review a published version alongside the current draft | Read-only |
+| `restore_workflow_draft` | Restore a version into the draft without changing the live version | Destructive |
+| `list_workflow_organization` | List folders (flat/tree) and tags with workflow counts | Read-only |
+| `manage_workflow_folder` | Create/update/delete folders with the editor's cycle and nonempty safeguards | Destructive |
+| `manage_workflow_tag` | Create/update/delete tags with shared editor validation | Destructive |
 
-Folders, tags, credentials, arbitrary models, and generic
-registry operations are intentionally not part of this MCP boundary.
+Credentials, arbitrary models and registry registration remain installation
+concerns rather than workflow authoring controls. Canvas zoom and selection are
+client state; node positions, pins, insertion, removal and undo/redo use
+`edit_workflow_graph`. The two organization mutation tools combine create,
+update and delete and carry the conservative destructive annotation.
 
 MCP clients should preserve unrelated nodes and edges when saving a complete
 draft. They must fetch again after a stale-hash error. Draft saves do not imply
@@ -101,6 +127,48 @@ only be called when the user explicitly requests them.
 projection status, not a completed workflow result. Use `show_workflow_run` to
 inspect progress. Workflows configured for a registered host subject must be
 started through the host's subject-aware PHP API rather than this generic tool.
+
+`test_workflow_node` runs the draft through the chosen node and can execute
+upstream business actions, exactly like **Test step**. It records an immutable
+execution snapshot without changing the live version or activation. Its
+`expected_graph_hash` comes from `get_workflow_graph`, not `get_workflow_draft`.
+Inspect the returned run with `show_workflow_run(include_data:true)` to see the
+same samples as the editor. Replay repeats the original revision and payload.
+
+## Agent authoring without app PHP
+
+For an existing catalog, the shortest authoring path is two tool calls:
+
+```text
+list_workflow_nodes(search: "lead", include_schemas: true)
+create_workflow(
+  name: "Email owner when lead status changes",
+  nodes: [
+    { id: "event", capability: "<discovered lead-status key>" },
+    { id: "email", capability: "<discovered owner-email key>",
+      config: { "<discovered message field>": "Please review your lead." } }
+  ],
+  edges: [{ from: "event", to: "email" }]
+)
+```
+
+The placeholders must come from the catalog response, including every required
+configuration field. Creation validates the entire graph in a transaction. On
+failure, no empty workflow or partial graph is left behind. Creation returns an
+inactive draft and a hash; activating it is a separate requested operation.
+The saved draft opens normally in the editor, and later UI edits are visible
+through MCP.
+
+The same contract handles open-ticket reminders or daily 08:00 booking
+confirmation: discover the schedule, query and action steps, set their declared
+configuration, then create their connected graph. No domain-specific MCP tool
+or PHP workflow class is needed.
+
+The [browser acceptance host](/advanced/browser-testing) includes a real HTTP
+MCP test: discover the lead catalog, create a draft, edit it through visible UI
+controls, observe that edit through MCP, test it through the real queue and
+inspect the captured owner email and run samples. The proof exercises the
+protocol and editor together; it does not evaluate a particular LLM's planning.
 
 ## Real example: WhatsApp conversation to support ticket
 
@@ -179,7 +247,10 @@ stores the stable key, and the Laravel container resolves the host's
 ## Security
 
 The host owns authentication, authorization, tenancy, rate limits, and audit
-middleware for the MCP transport. Tool arguments are workflow data, not an
+middleware for the MCP transport. Apply the same actor and tenant scope to
+both interfaces; shared services alone do not grant or enforce a host's
+transport permissions. A local stdio transport must also establish that scope.
+Tool arguments are workflow data, not an
 authorization boundary. Provider, model, conversation, and credential IDs must
 not be accepted as substitutes for the authenticated host actor.
 

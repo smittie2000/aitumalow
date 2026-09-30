@@ -137,6 +137,10 @@ export function WorkflowEditorPage({ workflowId, onExit, onOpenWorkflow }: Workf
       await fetchRegistry()
       await loadTagsAndFolders()
       await loadWorkflow(workflowId, registryStore.getState().getByKey)
+      if (workflowEditorStore.getState().rfNodes.length === 0) {
+        setActionRequest({ triggersOnly: true })
+        setSidebarTab('palette')
+      }
     }
     void init().catch((error) => setLoadError(apiErrorMessage(error, 'The editor could not be loaded.')))
     return () => {

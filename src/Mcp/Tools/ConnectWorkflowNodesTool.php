@@ -2,8 +2,8 @@
 
 namespace Aitumalow\Mcp\Tools;
 
-use Aitumalow\Models\WorkflowNode;
 use Aitumalow\Services\WorkflowService;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
@@ -35,8 +35,8 @@ final class ConnectWorkflowNodesTool extends Tool
 
     public function handle(Request $request): ResponseFactory
     {
-        $source = WorkflowNode::findOrFail($request->integer('source_workflow_node_id'));
-        $target = WorkflowNode::findOrFail($request->integer('target_workflow_node_id'));
+        $source = ConfiguredModels::node()::findOrFail($request->integer('source_workflow_node_id'));
+        $target = ConfiguredModels::node()::findOrFail($request->integer('target_workflow_node_id'));
 
         if ($source->workflow_id !== $target->workflow_id) {
             throw ValidationException::withMessages([

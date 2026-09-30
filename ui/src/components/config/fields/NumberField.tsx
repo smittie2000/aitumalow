@@ -9,6 +9,7 @@ interface Props {
 export function NumberField({ field, value, onChange }: Props) {
   return (
     <input
+      aria-label={field.label}
       type="number"
       value={value ?? ''}
       onChange={(e) => onChange(parseFloat(e.target.value) || 0)}

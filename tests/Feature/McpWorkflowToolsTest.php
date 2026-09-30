@@ -46,33 +46,47 @@ it('shares identity-preserving graph edits and exact retries with the editor API
         ->and($workflow->graphEdits()->count())->toBe(1);
 });
 
-it('exposes only the focused catalog and workflow composition tools', function (): void {
+it('exposes the editor catalog and workflow management controls', function (): void {
     $server = new WorkflowMcpServer(new FakeTransporter);
     $context = $server->createContext();
 
-    expect($context->tools()->map->name()->all())->toBe([
-        'list_workflow_nodes',
-        'show_workflow_node',
-        'list_workflow_references',
-        'list_workflows',
-        'show_workflow',
-        'get_workflow_draft',
-        'get_workflow_graph',
-        'edit_workflow_graph',
-        'create_workflow',
-        'save_workflow_draft',
-        'update_workflow',
-        'add_workflow_node',
-        'update_workflow_node',
-        'remove_workflow_node',
-        'connect_workflow_nodes',
-        'disconnect_workflow_nodes',
-        'validate_workflow',
-        'activate_workflow',
-        'deactivate_workflow',
-        'run_workflow',
-        'show_workflow_run',
-    ])->and($context->prompts())->toBeEmpty()
+    expect($context->defaultPaginationLength)->toBeGreaterThanOrEqual($context->tools()->count())
+        ->and($context->tools()->map->name()->all())->toBe([
+            'list_workflow_nodes',
+            'show_workflow_node',
+            'list_workflow_references',
+            'list_workflows',
+            'show_workflow',
+            'get_workflow_draft',
+            'get_workflow_graph',
+            'edit_workflow_graph',
+            'create_workflow',
+            'save_workflow_draft',
+            'update_workflow',
+            'add_workflow_node',
+            'update_workflow_node',
+            'remove_workflow_node',
+            'connect_workflow_nodes',
+            'disconnect_workflow_nodes',
+            'validate_workflow',
+            'activate_workflow',
+            'deactivate_workflow',
+            'run_workflow',
+            'show_workflow_run',
+            'duplicate_workflow',
+            'delete_workflow',
+            'get_workflow_variables',
+            'test_workflow_node',
+            'list_workflow_runs',
+            'control_workflow_run',
+            'list_workflow_revisions',
+            'compare_workflow_revision',
+            'restore_workflow_draft',
+            'list_workflow_organization',
+            'manage_workflow_folder',
+            'manage_workflow_tag',
+        ])
+        ->and($context->prompts())->toBeEmpty()
         ->and($context->instructions)->toContain('never activate, deactivate, or run a workflow unless the user explicitly asks');
 });
 

@@ -35,6 +35,12 @@ final class AddWorkflowNodeTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
+        $request->validate([
+            'workflow_id' => ['required', 'integer'],
+            'key' => ['required', 'string'],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'config' => ['sometimes', 'array'],
+        ]);
         $key = $request->string('key')->toString();
         $definition = $this->registry->definition($key);
         $config = $request->get('config', []);

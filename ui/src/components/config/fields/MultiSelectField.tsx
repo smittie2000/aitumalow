@@ -19,13 +19,14 @@ export function MultiSelectField({ field, value, onChange }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div role="group" aria-label={field.label} className="flex flex-wrap gap-1.5">
       {options.map((opt) => {
         const isActive = selected.includes(opt)
         return (
           <button
             key={opt}
             type="button"
+            aria-pressed={isActive}
             onClick={() => toggle(opt)}
             className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
               isActive

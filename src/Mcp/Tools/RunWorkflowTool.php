@@ -31,6 +31,11 @@ class RunWorkflowTool extends Tool
 
     public function handle(Request $request): ResponseFactory
     {
+        $request->validate([
+            'workflow_id' => ['required', 'integer'],
+            'payload' => ['sometimes', 'array', 'list'],
+            'payload.*' => ['array'],
+        ]);
         $run = $this->service->run(
             $request->integer('workflow_id'),
             $request->get('payload', []),

@@ -124,7 +124,7 @@ export function NodePalette({ request, onAdded }: NodePaletteProps) {
         <button type="button" disabled={!!adding || blocked} onClick={() => void add(chosen, { input: inputPort, output: outputPort })} className="w-full rounded-lg bg-blue-600 p-2 text-sm text-white disabled:opacity-50">{adding ? 'Adding…' : edgeId ? 'Insert step' : 'Add connected step'}</button>
       </div> : <div ref={resultsRef} className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {filtered.map((capability) => <button
-          type="button" key={capability.key} disabled={!!adding || blocked}
+          type="button" key={capability.key} aria-label={capability.name} disabled={!!adding || blocked}
           draggable={!source && !edgeId && !adding && !blocked}
           onDragStart={(event) => { event.dataTransfer.setData('application/workflow-node-key', capability.key); event.dataTransfer.effectAllowed = 'move' }}
           onClick={() => void add(capability)}

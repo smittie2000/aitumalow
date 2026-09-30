@@ -44,7 +44,7 @@ Workers and operational commands are supplied by Durable Workflow. Configure an 
 
 ## Stable 2.x compatibility
 
-Aitumalow requires the stable `durable-workflow/workflow:^2.0.14` release line. Its
+Aitumalow requires the stable `durable-workflow/workflow:^2.2.21` release line. Its
 runtime adapters use Durable's semver-covered workflow, activity, start,
 schedule, query, Update, cancellation, and testing APIs only. Durable classes
 and storage models remain private implementation details.
@@ -72,6 +72,25 @@ PHP workers after upgrading so they load the fixes.
 Aitumalow 0.5.0 separately adds a graph-edit receipt table. Hosts must run their
 normal migration and readiness checks after updating dependencies; see the
 [release upgrade steps](/releases/0.5.0).
+
+The current upgrade from 2.0.14 to 2.2.21 also includes Durable migrations for
+cooperative cancellation, local-activity exception encoding, UTC schedule and
+history timestamps, retention markers, and schedule occurrence indexes. Run the
+dependency's migrations before processing work with upgraded workers. Laravel 13
+hosts must meet Durable's patched 13.30.0 minimum.
+
+The [upstream release notes](https://github.com/durable-workflow/workflow/releases)
+describe two additive APIs: failed-run redrive and cooperative cancellation.
+Aitumalow continues to use its existing immediate cancellation and explicit
+rerun behavior; upgrading the dependency does not silently change either
+operation. Existing public adapters remain compatible and are exercised by the
+PHP suite and [real browser acceptance test](/advanced/browser-testing).
+
+For schedule timestamps written in a different timezone from the application's
+configured timezone, set `DW_V2_LEGACY_SCHEDULE_STORAGE_TIMEZONE` for the migration.
+For existing deployments, follow Durable's timestamp guide and inspect
+`workflow:v2:rebuild-projections --needs-rebuild --dry-run --json` after upgrading
+all projection writers. A dry run does not change history or projections.
 
 ## Projections are not the engine
 

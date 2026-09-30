@@ -7,6 +7,7 @@ namespace Aitumalow\Mcp\Tools;
 use Aitumalow\DTOs\WorkflowDraftDefinition;
 use Aitumalow\Exceptions\WorkflowDraftConflictException;
 use Aitumalow\Exceptions\WorkflowValidationException;
+use Aitumalow\Mcp\Schemas\WorkflowDraftSchema;
 use Aitumalow\Services\WorkflowDraftService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\ValidationException;
@@ -33,18 +34,7 @@ final class SaveWorkflowDraftTool extends Tool
         return [
             'workflow_id' => $schema->integer()->required()->description('Workflow ID.'),
             'expected_draft_hash' => $schema->string()->required()->description('Exact draft_hash returned by get_workflow_draft.'),
-            'nodes' => $schema->array()->items($schema->object([
-                'id' => $schema->string()->required()->description('Document-local lowercase alias used by edges.'),
-                'capability' => $schema->string()->required()->description('Exact stable key from show_workflow_node.'),
-                'name' => $schema->string()->description('Optional instance name.'),
-                'config' => $schema->object()->description('Configuration matching the registered capability schema.'),
-            ]))->required()->description('Complete replacement node list.'),
-            'edges' => $schema->array()->items($schema->object([
-                'from' => $schema->string()->required()->description('Source node alias.'),
-                'to' => $schema->string()->required()->description('Target node alias.'),
-                'output' => $schema->string()->default('main')->description('Registered source output port.'),
-                'input' => $schema->string()->default('main')->description('Registered target input port.'),
-            ]))->required()->description('Complete replacement edge list.'),
+            ...WorkflowDraftSchema::fields($schema),
         ];
     }
 

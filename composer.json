@@ -23,7 +23,7 @@
   "require": {
     "php": "^8.4",
     "dragonmantank/cron-expression": "^3.6",
-    "durable-workflow/workflow": "^2.0.14",
+    "durable-workflow/workflow": "^2.2.21",
     "filament/filament": "^5.0",
     "illuminate/contracts": "^13.0",
     "illuminate/database": "^13.0",
@@ -35,7 +35,7 @@
   "require-dev": {
     "driftingly/rector-laravel": "^2.5",
     "larastan/larastan": "^3.0",
-    "laravel/mcp": "^0.9.4",
+    "laravel/mcp": "^1.0.1",
     "laravel/pint": "^1.27",
     "orchestra/testbench": "^11.0",
     "pestphp/pest": "^5.0",
@@ -73,7 +73,7 @@
     }
   },
   "suggest": {
-    "laravel/mcp": "Required for optional MCP server support (^0.9)"
+    "laravel/mcp": "Required for optional MCP server support (^1.0)"
   },
   "support": {
     "issues": "https://github.com/smittie2000/aitumalow/issues",

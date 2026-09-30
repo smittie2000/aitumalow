@@ -19,6 +19,7 @@ import { SectionField } from './fields/SectionField'
 import { CustomWebComponentField } from './fields/CustomWebComponentField'
 import { WorkflowSelectField } from './fields/WorkflowSelectField'
 import { ReferenceField } from './fields/ReferenceField'
+import { ScheduleField, TimezoneField } from './fields/ScheduleField'
 
 interface Props {
   schema: ConfigSchemaField[]
@@ -109,9 +110,11 @@ function FieldRenderer({
 }) {
   switch (field.type) {
     case 'string':
-    case 'cron':
-    case 'timezone':
       return <StringField field={field} value={value as string} onChange={onChange} variables={variables} />
+    case 'cron':
+      return <ScheduleField field={field} value={value as string} onChange={onChange} />
+    case 'timezone':
+      return <TimezoneField field={field} value={value as string} onChange={onChange} />
     case 'reference':
       return workflowId == null
         ? <StringField field={field} value={value as string} onChange={onChange} variables={variables} />

@@ -82,6 +82,7 @@ class Workflow extends Model
     {
         return $this->hasMany(
             ConfiguredModels::node(),
+            'workflow_id',
         );
     }
 
@@ -90,13 +91,14 @@ class Workflow extends Model
     {
         return $this->hasMany(
             ConfiguredModels::edge(),
+            'workflow_id',
         );
     }
 
     /** @return HasMany<WorkflowGraphEdit, $this> */
     public function graphEdits(): HasMany
     {
-        return $this->hasMany(ConfiguredModels::graphEdit());
+        return $this->hasMany(ConfiguredModels::graphEdit(), 'workflow_id');
     }
 
     /** @return HasMany<WorkflowRun, $this> */
@@ -104,13 +106,14 @@ class Workflow extends Model
     {
         return $this->hasMany(
             ConfiguredModels::run(),
+            'workflow_id',
         );
     }
 
     /** @return HasMany<WorkflowRevision, $this> */
     public function revisions(): HasMany
     {
-        return $this->hasMany(ConfiguredModels::revision());
+        return $this->hasMany(ConfiguredModels::revision(), 'workflow_id');
     }
 
     /** @return BelongsTo<WorkflowRevision, $this> */

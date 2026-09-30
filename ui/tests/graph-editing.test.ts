@@ -118,3 +118,21 @@ test('test result maps belong to one run and carry the draft hash sent to the AP
   assert.equal(calls.length, 2)
   assert.match(runs.getState().testError!, /Save or discard/)
 })
+
+test('a late history response from a previous workflow cannot replace the current workflow runs', async () => {
+  const { store, sdk } = await editor()
+  let finishOld: (value: { data: WorkflowRun[] }) => void = () => { throw new Error('Old request was not started') }
+  const currentRun = { id: 20, workflow_id: 2, status: 'completed' } as WorkflowRun
+  sdk.runs = {
+    list: async (id: number) => id === 1
+      ? await new Promise((resolve) => { finishOld = resolve })
+      : { data: [currentRun] },
+  } as AitumalowEditorSdk['runs']
+  const runs = createRunStore(sdk, store)
+  const pendingOld = runs.getState().fetchRuns(1)
+  store.setState({ workflow: { ...workflow, id: 2 } })
+  await runs.getState().fetchRuns(2)
+  finishOld({ data: [{ id: 10, workflow_id: 1 } as WorkflowRun] })
+  await pendingOld
+  assert.deepEqual(runs.getState().runs, [currentRun])
+})

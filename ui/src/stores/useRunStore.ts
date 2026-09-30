@@ -45,7 +45,7 @@ export const createRunStore = (
     set({ isLoading: true })
     try {
       const res = await sdk.runs.list(workflowId)
-      set({ runs: res.data })
+      if (workflowEditorStore.getState().workflow?.id === workflowId) set({ runs: res.data })
     } finally {
       set({ isLoading: false })
     }

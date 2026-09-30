@@ -2,8 +2,8 @@
 
 namespace Aitumalow\Console\Commands;
 
-use Aitumalow\Models\Workflow;
 use Aitumalow\Services\WorkflowService;
+use Aitumalow\Support\ConfiguredModels;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -22,7 +22,7 @@ class ValidateWorkflowCommand extends Command
             return self::FAILURE;
         }
 
-        $workflow = Workflow::find((int) $argument);
+        $workflow = ConfiguredModels::workflow()::find((int) $argument);
 
         if (! $workflow) {
             $this->components->error('Workflow not found.');

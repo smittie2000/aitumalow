@@ -15,6 +15,7 @@ export function SliderField({ field, value, onChange }: Props) {
   return (
     <div className="flex items-center gap-3">
       <input
+        aria-label={field.label}
         type="range"
         min={min}
         max={max}

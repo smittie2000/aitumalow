@@ -11,6 +11,7 @@ import { DataPreview } from './DataPreview'
 import { NodeRunStatusBadge } from '../shared/StatusBadge'
 import { TestNodeInputModal } from '../execution/TestNodeInputModal'
 import { MarkdownRenderer } from '../shared/MarkdownRenderer'
+import { useActionPicker } from '../editor/ActionPickerContext'
 
 export type NodeWorkspaceTab = 'input' | 'config' | 'output' | 'docs'
 interface NodeConfigPanelProps {
@@ -21,6 +22,7 @@ interface NodeConfigPanelProps {
 
 export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: NodeConfigPanelProps) {
   const sdk = useEditorSdk()
+  const openActionPicker = useActionPicker()
   const editor = useWorkflowEditorStore()
   const { workflow, selectedApiNode: node, selectedRegistryNode: capability, nodeDrafts, selectNode, setNodeDraft, discardNodeDraft, saveNodeDraft, pinNode, unpinNode } = editor
   const { nodeTestResults, testRun, testGraphHash, testError, isTestingNode, testNode, runs, fetchRuns } = useRunStore(useShallow((state) => ({
@@ -96,7 +98,7 @@ export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: Nod
       <div className={`flex border-b border-gray-200 dark:border-gray-700 ${expanded ? 'lg:hidden' : ''}`} role="tablist" aria-label="Step workspace">
         {(['input', 'config', 'output', ...(capability.documentation ? ['docs'] : [])] as NodeWorkspaceTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} key={item} onClick={() => setTab(item)} className={`flex-1 border-b-2 px-2 py-2.5 text-xs ${tab === item ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>{item === 'config' ? 'Settings' : item === 'input' ? 'Input' : item === 'output' ? 'Output' : 'Docs'}</button>)}
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50/70 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+      <div className={`flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50/70 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/40 ${tab === 'config' && !expanded ? 'hidden' : ''}`}>
         <label className="text-[11px] text-gray-500" htmlFor="step-data-source">Data from</label>
         <select id="step-data-source" aria-label="Data source" value={source} onChange={(event) => { setSource(event.target.value); setHistoricalRun(null); setIsLoadingRun(event.target.value.startsWith('run:')); setError(null) }} className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
           <option value="test">Latest draft test{activeTest ? ` #${activeTest.id}` : ''}</option>
@@ -105,7 +107,7 @@ export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: Nod
         </select>
         {expanded && capability.documentation && <button type="button" onClick={() => setTab(tab === 'docs' ? 'config' : 'docs')} className="hidden px-2 text-xs text-blue-600 lg:block dark:text-blue-400">{tab === 'docs' ? 'Back to settings' : 'Step docs'}</button>}
       </div>
-      {(stale || dirty) && <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">{dirty ? 'Save settings before testing. The data below belongs to the selected sample or run.' : 'The draft has changed since this test. Test again to see current results.'}</p>}
+      {(stale || dirty) && <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">{dirty ? 'Save settings before publishing or testing.' : 'The draft has changed since this test. Test again to see current results.'}</p>}
     </>}
 
     {feedback && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{feedback}</p>}
@@ -125,7 +127,7 @@ export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: Nod
           {expanded && <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Settings</h3>}
           {capability.description && <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">{capability.description}</p>}
           <fieldset disabled={blocked} className="min-w-0 space-y-4 disabled:opacity-60"><DynamicForm schema={capability.config_schema} values={local.config} onChange={(key, value) => setNodeDraft(node.id, { ...local, config: { ...local.config, [key]: value } })} variables={variables} workflowId={workflow?.id} /></fieldset>
-          {variables && <div className="border-t border-gray-200 pt-3 dark:border-gray-700"><VariablePanel data={variables} onInsert={(expression) => { void navigator.clipboard.writeText(expression).catch(() => setError('Could not copy the expression.')) }} /></div>}
+          {variables && capability.config_schema.some((field) => field.supports_expression) && <details className="border-t border-gray-200 pt-3 dark:border-gray-700"><summary className="cursor-pointer text-xs text-gray-500">Use data from previous steps</summary><VariablePanel data={variables} onInsert={(expression) => { void navigator.clipboard.writeText(expression).catch(() => setError('Could not copy the expression.')) }} /></details>}
         </div>}
       </section>
 
@@ -145,6 +147,10 @@ export function NodeConfigPanel({ expanded, onToggleExpanded, onTabChange }: Nod
     </div>
 
     <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+      {!annotation && capability.output_ports.map((port) => <button key={port} type="button" disabled={blocked || isTestingNode} onClick={() => void act(async () => {
+        if (dirty) await saveNodeDraft(node.id)
+        openActionPicker({ source: { nodeId: String(node.id), port } })
+      })} className="flex items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-xs font-medium text-blue-600 disabled:opacity-50 dark:border-blue-800 dark:text-blue-400"><ArrowRight size={13} />{dirty ? 'Save and add next step' : 'Add next step'}{port !== 'main' ? ` (${port})` : ''}</button>)}
       {dirty ? <><button type="button" disabled={blocked} onClick={() => void act(() => saveNodeDraft(node.id))} className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"><Save size={13} />{editor.isEditing ? 'Saving…' : 'Save settings'}</button><button type="button" disabled={blocked} onClick={() => discardNodeDraft(node.id)} className="px-2 text-xs text-gray-500 disabled:opacity-50">Discard</button></> : <span className="text-[11px] text-gray-400">Settings saved in draft</span>}
       {!annotation && <button type="button" disabled={blocked || isTestingNode || Object.keys(nodeDrafts).length > 0} onClick={() => setShowTestModal(true)} className="ml-auto flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{isTestingNode ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}{isTestingNode ? 'Testing…' : 'Test step'}</button>}
     </div>

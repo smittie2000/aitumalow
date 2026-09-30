@@ -7,6 +7,56 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-30
+
+### Changed
+
+- Require Durable Workflow `^2.2.21` and React Flow `^12.12.0`. Reviewed upstream
+  release notes and validated existing start, command, cancellation, replay and
+  schedule contracts. Laravel 13.30+ is required by Durable; hosts must apply
+  its pending runtime migrations. Optional MCP support is validated against
+  Laravel MCP 1.0.1.
+
+### Added
+
+- MCP parity with editor workflow controls: complete draft creation in one
+  transaction, schema discovery, settings/folders/tags, expression variables,
+  draft tests, run history and recovery, revision review/restoration and
+  duplication/deletion. Agents compose stored workflow data without app PHP.
+- Real HTTP MCP/browser acceptance: an MCP-created draft is editable in the
+  UI, its changes are visible through MCP, and real queued execution sends
+  captured owner email with inspectable input/output samples.
+- Friendly recurrence/time/day and timezone controls, preserving native cron
+  and custom schedules. Empty drafts open trigger selection automatically;
+  step settings can save and add a connected next step. Data inspection and
+  expression helpers appear where relevant.
+- Generic scheduled browser acceptance scenarios for open-ticket reminders
+  and AI booking-call requests, with persisted test records, captured calls,
+  native schedule backfill and empty-result checks. The shared authoring flow
+  uses 17 direct form interactions without canvas coordinates or graph setup.
+- Isolated browser host with test leads, a real database queue worker and a
+  loopback SMTP inbox. Playwright builds and publishes lead-status email
+  automation using visible controls, checks the correct owner and message,
+  inspects completed runs, and verifies unrelated edits and deactivation.
+- Screenshots, interaction traces and HTML browser reports, with commands for
+  repeatable acceptance tests and persistent manual review.
+
+### Fixed
+
+- Editor route binding and service/MCP queries honor configured model subclasses
+  and global scopes. Workflow relationships retain their foreign keys when
+  subclassed; folder and tag assignments validate visibility before saving.
+- Whole-graph drafts open with separated node positions rather than overlapping
+  steps, requiring no extra MCP layout edits.
+- Duplicated workflows no longer inherit the source's active revision pointer.
+  Revision inspection identifies the live version across HTTP and MCP.
+- Run history refreshes while visible so scheduled executions and status changes
+  appear without manual reloads; stale responses from a previous workflow are
+  ignored. Primitive configuration inputs and switches expose their schema labels.
+- Give email configuration fields accessible names. Label the workflow creation
+  dialog and inputs, display creation errors, retain entered values on failure,
+  and disable duplicate submissions while creation is pending.
+
 ## [0.5.0] - 2026-09-13
 
 ### Added
@@ -141,7 +191,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   validation errors in both the workflow library and editor, while preventing
   duplicate status-toggle requests.
 
-[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/smittie2000/aitumalow/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/smittie2000/aitumalow/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/smittie2000/aitumalow/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smittie2000/aitumalow/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smittie2000/aitumalow/compare/v0.2.0...v0.3.0
